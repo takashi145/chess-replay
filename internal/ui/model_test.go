@@ -72,11 +72,7 @@ func isQuit(cmd tea.Cmd) bool {
 
 func singleModel(t *testing.T) Model {
 	t.Helper()
-	m, err := New(app.Source{Games: []chesscom.Game{makeGame("bob", "1. e4 e5 2. Nf3", 0)}, Single: true}, user)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return m
+	return New(app.Source{Games: []chesscom.Game{makeGame("bob", "1. e4 e5 2. Nf3", 0)}, Single: true}, user)
 }
 
 func listModel(t *testing.T) Model {
@@ -90,11 +86,7 @@ func listModel(t *testing.T) Model {
 		},
 		Hidden: 2,
 	}
-	m, err := New(src, user)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return m
+	return New(src, user)
 }
 
 func TestSingleGameOpensTheReplayDirectly(t *testing.T) {
@@ -108,11 +100,29 @@ func TestSingleGameOpensTheReplayDirectly(t *testing.T) {
 	}
 }
 
-func TestSingleGameWithUnparsablePGNIsAnError(t *testing.T) {
-	_, err := New(app.Source{Games: []chesscom.Game{makeGame("bob", "1. e4 e4", 0)}, Single: true}, user)
+func TestSingleGameWithUnparsablePGNShowsTheReasonInsteadOfTheBoard(t *testing.T) {
+	m := New(app.Source{Games: []chesscom.Game{makeGame("bob", "1. e4 e4", 0)}, Single: true}, user)
+	view := m.View()
 
-	if err == nil {
-		t.Fatal("expected an error")
+	if !m.replaying {
+		t.Fatal("the game should still be opened")
+	}
+	for _, want := range []string{replay.ErrParse.Error(), "bob", "https://www.chess.com/game/live/bob"} {
+		if !strings.Contains(view, want) {
+			t.Errorf("view missing %q:\n%s", want, view)
+		}
+	}
+	if strings.Contains(view, "┌") || strings.Contains(view, "B Back to list") {
+		t.Errorf("view should have neither a board nor a way back:\n%s", view)
+	}
+
+	// There is no board to move through, but the keys must still be harmless.
+	m, _ = press(m, "right", "left", "end", "home", "f", "b")
+	if !m.replaying || !strings.Contains(m.View(), replay.ErrParse.Error()) {
+		t.Errorf("view changed after pressing keys:\n%s", m.View())
+	}
+	if _, cmd := press(m, "q"); !isQuit(cmd) {
+		t.Error("q should quit")
 	}
 }
 
@@ -238,17 +248,13 @@ func TestListScrollsToKeepTheCursorVisible(t *testing.T) {
 	for i := range 30 {
 		games = append(games, makeGame("opp"+string(rune('a'+i%26))+string(rune('a'+i/26)), "1. e4 e5", i))
 	}
-	m, err := New(app.Source{Title: "t", Games: games}, user)
-	if err != nil {
-		t.Fatal(err)
-	}
-	next, _ := m.Update(tea.WindowSizeMsg{Width: 100, Height: 15})
-	m = next.(Model)
+	next, _ := New(app.Source{Title: "t", Games: games}, user).Update(tea.WindowSizeMsg{Width: 100, Height: 15})
+	m := next.(Model)
 
 	m, _ = press(m, "end")
 
 	size := m.pageSize()
-	if size != 10 || m.top != 20 || m.cursor != 29 {
+	if size != 11 || m.top != 19 || m.cursor != 29 {
 		t.Errorf("pageSize=%d top=%d cursor=%d", size, m.top, m.cursor)
 	}
 	if rows := strings.Count(m.View(), "vs opp"); rows != size {
@@ -278,21 +284,21 @@ func TestEnterOpensTheSelectedGameAndBackReturnsToTheList(t *testing.T) {
 	}
 }
 
-func TestOpeningAnUnparsableGameShowsAnErrorInTheList(t *testing.T) {
+func TestOpeningAnUnparsableGameShowsTheReasonAndCanGoBack(t *testing.T) {
 	m := listModel(t)
 
 	m, _ = press(m, "end", "enter")
 
-	if m.replaying {
-		t.Fatal("should stay on the list")
+	if !m.replaying || !strings.Contains(m.View(), replay.ErrParse.Error()) {
+		t.Fatalf("expected the reason in place of the board:\n%s", m.View())
 	}
-	if !strings.Contains(m.View(), replay.ErrParse.Error()) {
-		t.Errorf("view missing the error:\n%s", m.View())
+	if !strings.Contains(m.View(), "B Back to list") {
+		t.Error("the way back to the list should still be offered")
 	}
 
-	m, _ = press(m, "up", "enter")
-	if !m.replaying || m.message != "" {
-		t.Errorf("replaying=%v message=%q, want a clean replay", m.replaying, m.message)
+	m, _ = press(m, "b", "up", "enter")
+	if !m.replaying || m.failure != "" {
+		t.Errorf("replaying=%v failure=%q, want a clean replay of the next game", m.replaying, m.failure)
 	}
 }
 

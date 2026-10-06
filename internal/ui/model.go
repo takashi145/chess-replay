@@ -16,8 +16,8 @@ import (
 const (
 	progressBarWidth = 24
 
-	// Lines around the list rows: title, blank, blank, message, hint.
-	listReservedLines = 5
+	// Lines around the list rows: title, blank, blank, hint.
+	listReservedLines = 4
 	minPageSize       = 3
 
 	defaultWidth  = 80
@@ -45,17 +45,16 @@ type Model struct {
 
 	width, height int
 	cursor, top   int
-	message       string
 
 	replaying bool
 	game      chesscom.Game
 	snaps     []replay.Snapshot
+	failure   string
 	index     int
 	flipped   bool
 }
 
-// New returns an error when a single game cannot be replayed, so the caller can report it and exit.
-func New(src app.Source, username string) (Model, error) {
+func New(src app.Source, username string) Model {
 	m := Model{
 		username: username,
 		title:    src.Title,
@@ -65,10 +64,8 @@ func New(src app.Source, username string) (Model, error) {
 	}
 
 	if src.Single {
-		if err := m.open(src.Games[0]); err != nil {
-			return m, err
-		}
-		return m, nil
+		m.open(src.Games[0])
+		return m
 	}
 
 	for _, g := range src.Games {
@@ -78,21 +75,21 @@ func New(src app.Source, username string) (Model, error) {
 		}
 		m.entries = append(m.entries, entry{game: g, moves: moves})
 	}
-	return m, nil
+	return m
 }
 
-func (m *Model) open(g chesscom.Game) error {
+func (m *Model) open(g chesscom.Game) {
 	snaps, err := replay.Build(g.PGN)
-	if err != nil {
-		return err
-	}
-
 	m.game = g
 	m.snaps = snaps
+	m.failure = ""
+	if err != nil {
+		// The game is still opened; the reason is shown in place of the board.
+		m.failure = err.Error()
+	}
 	m.index = 0
 	m.flipped = false
 	m.replaying = true
-	return nil
 }
 
 func (m Model) Init() tea.Cmd { return tea.ClearScreen }
@@ -133,11 +130,7 @@ func (m Model) updateList(key string) (tea.Model, tea.Cmd) {
 	case "end":
 		m.cursor = n - 1
 	case "enter":
-		if err := m.open(m.entries[m.cursor].game); err != nil {
-			m.message = err.Error()
-		} else {
-			m.message = ""
-		}
+		m.open(m.entries[m.cursor].game)
 	case "q", "esc":
 		return m, tea.Quit
 	}
@@ -147,7 +140,7 @@ func (m Model) updateList(key string) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) updateReplay(key string) (tea.Model, tea.Cmd) {
-	last := len(m.snaps) - 1
+	last := max(len(m.snaps)-1, 0)
 
 	switch key {
 	case "right", "l":
@@ -239,16 +232,11 @@ func (m Model) viewList() string {
 		}
 	}
 
-	b.WriteString("\n")
-	if m.message != "" {
-		fmt.Fprintf(&b, "%s%s%s", red, m.message, reset)
-	}
 	fmt.Fprintf(&b, "\n%s↑/↓ Move   Enter Replay   Q Quit%s", grey, reset)
 	return b.String()
 }
 
 func (m Model) viewReplay() string {
-	snap := m.snaps[m.index]
 	top, bottom := m.game.Black, m.game.White
 	if m.flipped {
 		top, bottom = bottom, top
@@ -261,17 +249,25 @@ func (m Model) viewReplay() string {
 	fmt.Fprintf(&b, "   %s%s%s\n", grey, formatGameInfo(m.game), reset)
 	fmt.Fprintf(&b, "   %s%s%s\n", grey, m.game.URL, reset)
 	b.WriteString("\n")
+
+	backHint := ""
+	if m.openedFromList() {
+		backHint = "B Back to list   "
+	}
+
+	if m.failure != "" {
+		fmt.Fprintf(&b, "%s%s%s\n\n", red, m.failure, reset)
+		fmt.Fprintf(&b, "%s%sQ Quit%s", grey, backHint, reset)
+		return b.String()
+	}
+
+	snap := m.snaps[m.index]
 	b.WriteString(renderBoard(snap, m.flipped))
 	b.WriteString("\n\n")
 	b.WriteString(formatMove(snap))
 	b.WriteString("\n\n")
 	b.WriteString(renderProgressBar(m.index, len(m.snaps)-1))
 	b.WriteString("\n\n")
-
-	backHint := ""
-	if m.openedFromList() {
-		backHint = "B Back to list   "
-	}
 	fmt.Fprintf(&b, "%s← Previous   → Next   F Flip   Home/End   %sQ Quit%s", grey, backHint, reset)
 	return b.String()
 }

@@ -127,12 +127,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return reportError(stderr, err)
 	}
 
-	model, err := ui.New(src, opts.username)
-	if err != nil {
-		return reportError(stderr, err)
-	}
-
-	if _, err := tea.NewProgram(model).Run(); err != nil {
+	if _, err := tea.NewProgram(ui.New(src, opts.username)).Run(); err != nil {
 		fmt.Fprintln(stderr, err)
 		return exitError
 	}

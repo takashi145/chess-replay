@@ -13,12 +13,11 @@ func TestParseArgs(t *testing.T) {
 		want options
 	}{
 		{"username only", []string{"alice"}, options{username: "alice"}},
-		{"options before username", []string{"--last", "5", "alice"}, options{username: "alice", last: 5, lastSet: true}},
-		{"options after username", []string{"alice", "--last", "5", "--verbose"}, options{username: "alice", last: 5, lastSet: true, verbose: true}},
+		{"options before username", []string{"--last", "5", "alice"}, options{username: "alice", last: 5}},
+		{"options after username", []string{"alice", "--last", "5", "--verbose"}, options{username: "alice", last: 5, verbose: true}},
 		{"single dash", []string{"alice", "-random"}, options{username: "alice", random: true}},
 		{"month", []string{"alice", "--month", "2026-08"}, options{username: "alice", month: "2026-08"}},
-		{"explicit zero is still set", []string{"alice", "--last", "0"}, options{username: "alice", lastSet: true}},
-		{"equals form", []string{"alice", "--last=3"}, options{username: "alice", last: 3, lastSet: true}},
+		{"equals form", []string{"alice", "--last=3"}, options{username: "alice", last: 3}},
 		{"version needs no username", []string{"--version"}, options{showVersion: true}},
 	}
 
@@ -40,6 +39,8 @@ func TestParseArgsRejectsBadInput(t *testing.T) {
 		"two usernames":  {"alice", "bob"},
 		"unknown option": {"alice", "--nope"},
 		"last not int":   {"alice", "--last", "many"},
+		"last zero":      {"alice", "--last", "0"},
+		"last negative":  {"alice", "--last", "-3"},
 		"missing value":  {"alice", "--month"},
 	}
 

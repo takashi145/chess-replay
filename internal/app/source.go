@@ -106,9 +106,8 @@ func (l Loader) Random(ctx context.Context, username string) (Source, error) {
 	return Source{}, &chesscom.NoGamesError{Username: username}
 }
 
+// Last lists the most recent count games; count must be at least 1.
 func (l Loader) Last(ctx context.Context, username string, count int) (Source, error) {
-	count = max(1, count)
-
 	archives, err := l.archives(ctx, username)
 	if err != nil {
 		return Source{}, err

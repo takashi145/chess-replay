@@ -41,7 +41,6 @@ Options:
 type options struct {
 	username    string
 	last        int
-	lastSet     bool
 	random      bool
 	month       string
 	verbose     bool
@@ -77,15 +76,16 @@ func parseArgs(args []string) (options, error) {
 		rest = fs.Args()[1:]
 	}
 
-	fs.Visit(func(f *flag.Flag) {
-		if f.Name == "last" {
-			opts.lastSet = true
-		}
-	})
-
 	if opts.showVersion {
 		return opts, nil
 	}
+
+	lastGiven := false
+	fs.Visit(func(f *flag.Flag) { lastGiven = lastGiven || f.Name == "last" })
+	if lastGiven && opts.last < 1 {
+		return opts, errors.New("--last expects a positive number.")
+	}
+
 	if len(positional) != 1 {
 		return opts, errors.New("expected exactly one <username> argument")
 	}
@@ -149,7 +149,7 @@ func load(ctx context.Context, opts options, logf func(string, ...any)) (app.Sou
 			return app.Source{}, errors.New("--month expects the format YYYY-MM.")
 		}
 		return loader.Month(ctx, opts.username, archive)
-	case opts.lastSet:
+	case opts.last > 0:
 		return loader.Last(ctx, opts.username, opts.last)
 	case opts.random:
 		return loader.Random(ctx, opts.username)

@@ -162,19 +162,6 @@ func TestLastCrossesMonthBoundaries(t *testing.T) {
 	}
 }
 
-func TestLastTreatsNonPositiveCountAsOne(t *testing.T) {
-	api := &fakeAPI{
-		archives: []chesscom.Archive{aug},
-		games:    map[chesscom.Archive][]chesscom.Game{aug: {game("a", 1, "chess"), game("b", 2, "chess")}},
-	}
-
-	src, err := Loader{API: api}.Last(context.Background(), "u", 0)
-
-	if err != nil || !slices.Equal(urls(src.Games), []string{"b"}) {
-		t.Fatalf("src = %+v, err = %v", src, err)
-	}
-}
-
 func TestLastWithOnlyChess960Games(t *testing.T) {
 	api := &fakeAPI{
 		archives: []chesscom.Archive{aug},

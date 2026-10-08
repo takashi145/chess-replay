@@ -12,69 +12,25 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-dotnet@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
-          dotnet-version: 10.0.x
-      - run: dotnet test
-
-  build:
-    needs: test
-    strategy:
-      matrix:
-        # Asset names are referenced by install.ps1 / install.sh; keep them in sync.
-        include:
-          # Self-contained single-file publish can cross-compile, so Windows builds on Linux.
-          # This won't work if switching to NativeAOT.
-          - rid: win-x64
-            os: ubuntu-latest
-            asset: chess-replay-win-x64.exe
-          - rid: linux-x64
-            os: ubuntu-latest
-            asset: chess-replay-linux-x64
-          - rid: osx-arm64
-            os: macos-latest
-            asset: chess-replay-osx-arm64
-          - rid: osx-x64
-            os: macos-latest
-            asset: chess-replay-osx-x64
-    runs-on: ${{ matrix.os }}
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-dotnet@v5
-        with:
-          dotnet-version: 10.0.x
-      - run: dotnet publish ChessReplay -c Release -r ${{ matrix.rid }} -o out
-      - name: Rename binary
-        shell: bash
-        run: |
-          src=out/chess-replay
-          [ "${{ matrix.rid }}" = win-x64 ] && src=out/chess-replay.exe
-          mkdir dist
-          mv "$src" "dist/${{ matrix.asset }}"
-      - uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.asset }}
-          path: dist/${{ matrix.asset }}
+          go-version-file: go.mod
+      - run: go test ./...
 
   release:
-    needs: build
+    needs: test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v5
+      - uses: actions/checkout@v7
         with:
-          path: dist
-          merge-multiple: true
-      # install.ps1 / install.sh verify downloads against this file.
-      - name: Generate checksums
-        working-directory: dist
-        run: sha256sum chess-replay-* > SHA256SUMS
-      - name: Upload to GitHub Release
+          fetch-depth: 0
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - uses: goreleaser/goreleaser-action@v7
+        with:
+          version: "~> v2"
+          args: release --clean
         env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-          TAG: ${{ github.ref_name }}
-        # Create the release only if it doesn't exist, so re-running the workflow for the same tag works.
-        run: |
-          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --verify-tag --generate-notes
-          gh release upload "$TAG" dist/* --clobber
+          GITHUB_TOKEN: ${{ github.token }}

@@ -9,18 +9,18 @@ Chess.com の対局をターミナルで再生するツールです。
 **Windows**（PowerShell）
 
 ```powershell
-irm https://raw.githubusercontent.com/takashi145/ChessReplay/main/install.ps1 | iex
+irm https://raw.githubusercontent.com/takashi145/chess-replay/main/install.ps1 | iex
 ```
 
 **macOS / Linux**
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/takashi145/ChessReplay/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/takashi145/chess-replay/main/install.sh | sh
 ```
 
 アップデートするときは、同じコマンドをもう一度実行してください。
-[Releases](https://github.com/takashi145/ChessReplay/releases/latest) ページからお使いの環境用のバイナリをダウンロードし、
-自分で `PATH` の通った場所に置くこともできます。
+[Releases](https://github.com/takashi145/chess-replay/releases/latest) ページからお使いの環境用のアーカイブをダウンロードして展開し、
+`chess-replay` を自分で `PATH` の通った場所に置くこともできます。
 
 ### インストーラーが行うこと
 

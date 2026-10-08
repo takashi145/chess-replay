@@ -1,5 +1,5 @@
 #!/bin/sh
-# Usage: curl -fsSL https://raw.githubusercontent.com/takashi145/ChessReplay/main/install.sh | sh
+# Usage: curl -fsSL https://raw.githubusercontent.com/takashi145/chess-replay/main/install.sh | sh
 # Set CHESS_REPLAY_INSTALL_DIR to install somewhere other than ~/.local/bin.
 
 # Everything runs from main, called on the last line, so a partially downloaded script does nothing.
@@ -7,14 +7,16 @@
 set -eu
 
 # Asset names must match the ones produced by .github/workflows/release.yml.
-base_url="https://github.com/takashi145/ChessReplay/releases/latest/download"
+base_url="https://github.com/takashi145/chess-replay/releases/latest/download"
 
 tmp=""
 sums=""
+extract=""
 
 cleanup() {
     [ -n "$tmp" ] && rm -f "$tmp"
     [ -n "$sums" ] && rm -f "$sums"
+    [ -n "$extract" ] && rm -rf "$extract"
     return 0
 }
 
@@ -61,7 +63,7 @@ main() {
         exit 1
     fi
 
-    asset="chess-replay-$os-$arch"
+    asset="chess-replay-$os-$arch.tar.gz"
 
     mkdir -p "$install_dir"
 
@@ -71,6 +73,7 @@ main() {
     trap 'exit 1' HUP INT TERM
     tmp=$(mktemp "$install_dir/.chess-replay.XXXXXX")
     sums=$(mktemp)
+    extract=$(mktemp -d)
 
     echo "Downloading chess-replay..."
     download "$base_url/$asset" "$tmp"
@@ -87,6 +90,8 @@ main() {
         exit 1
     fi
 
+    tar -xzf "$tmp" -C "$extract" chess-replay
+    mv -f "$extract/chess-replay" "$tmp"
     chmod 755 "$tmp"
     mv -f "$tmp" "$install_dir/chess-replay"
 

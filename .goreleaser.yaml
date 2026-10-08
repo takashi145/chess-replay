@@ -1,0 +1,48 @@
+version: 2
+
+project_name: chess-replay
+
+builds:
+  - main: ./cmd/chess-replay
+    binary: chess-replay
+    env:
+      - CGO_ENABLED=0
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w -X main.version={{.Version}}
+    goos:
+      - windows
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      - goos: windows
+        goarch: arm64
+      - goos: linux
+        goarch: arm64
+
+# Archive names must match the ones the install scripts download.
+archives:
+  - formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    name_template: >-
+      chess-replay-{{ if eq .Os "darwin" }}osx{{ else if eq .Os "windows" }}win{{ else }}{{ .Os }}{{ end }}-{{ if eq .Arch "amd64" }}x64{{ else }}{{ .Arch }}{{ end }}
+    files:
+      - LICENSE
+      - THIRD-PARTY-NOTICES.md
+
+checksum:
+  name_template: SHA256SUMS
+  algorithm: sha256
+
+changelog:
+  use: github-native
+
+release:
+  # Lets re-running the workflow for the same tag work.
+  replace_existing_artifacts: true

@@ -11,17 +11,17 @@ A tool to replay Chess.com games in the terminal.
 **Windows** (PowerShell)
 
 ```powershell
-irm https://raw.githubusercontent.com/takashi145/ChessReplay/main/install.ps1 | iex
+irm https://raw.githubusercontent.com/takashi145/chess-replay/main/install.ps1 | iex
 ```
 
 **macOS / Linux**
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/takashi145/ChessReplay/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/takashi145/chess-replay/main/install.sh | sh
 ```
 
-Run the same command again to update. You can also download a binary for your platform from the
-[Releases](https://github.com/takashi145/ChessReplay/releases/latest) page and put it on your `PATH` yourself.
+Run the same command again to update. You can also download the archive for your platform from the
+[Releases](https://github.com/takashi145/chess-replay/releases/latest) page, extract it, and put `chess-replay` on your `PATH` yourself.
 
 ### What the installer does
 

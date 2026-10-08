@@ -343,3 +343,15 @@ func TestGameInfoFormatting(t *testing.T) {
 		t.Errorf("formatGameInfo = %q", got)
 	}
 }
+
+func TestReplayShowsTheFENAndFitsIn24Lines(t *testing.T) {
+	m, _ := press(singleModel(t), "right")
+	view := m.View()
+
+	if !strings.Contains(view, m.snaps[1].FEN) {
+		t.Errorf("view missing the FEN %q:\n%s", m.snaps[1].FEN, view)
+	}
+	if lines := strings.Count(view, "\n") + 1; lines > 24 {
+		t.Errorf("replay screen has %d lines, want at most 24", lines)
+	}
+}

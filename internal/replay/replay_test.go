@@ -71,3 +71,22 @@ func TestUnreplayablePGNIsAParseError(t *testing.T) {
 		}
 	}
 }
+
+func TestBuildRecordsTheFENOfEachPosition(t *testing.T) {
+	snaps, err := Build("1. e4 e5 2. Nf3")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	want := []string{
+		"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+		"rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1",
+		"rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq e6 0 2",
+		"rnbqkbnr/pppp1ppp/8/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2",
+	}
+	for i, fen := range want {
+		if snaps[i].FEN != fen {
+			t.Errorf("snaps[%d].FEN = %q, want %q", i, snaps[i].FEN, fen)
+		}
+	}
+}

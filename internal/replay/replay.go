@@ -44,6 +44,7 @@ type Snapshot struct {
 	MoveNumber int
 	SAN        string // empty for the starting position
 	From, To   *Square
+	FEN        string
 }
 
 // Build returns one snapshot per ply, preceded by the starting position.
@@ -59,6 +60,7 @@ func Build(pgn string) ([]Snapshot, error) {
 	snapshots := make([]Snapshot, 0, len(moves)+1)
 	snapshots = append(snapshots, Snapshot{
 		Board: captureBoard(positions[0]),
+		FEN:   positions[0].String(),
 	})
 
 	for i, move := range moves {
@@ -68,6 +70,7 @@ func Build(pgn string) ([]Snapshot, error) {
 			SAN:        lib.AlgebraicNotation{}.Encode(positions[i], move),
 			From:       toSquare(move.S1()),
 			To:         toSquare(move.S2()),
+			FEN:        positions[i+1].String(),
 		})
 	}
 	return snapshots, nil

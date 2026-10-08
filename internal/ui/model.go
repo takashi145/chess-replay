@@ -265,9 +265,9 @@ func (m Model) viewReplay() string {
 	b.WriteString(renderBoard(snap, m.flipped))
 	b.WriteString("\n\n")
 	b.WriteString(formatMove(snap))
-	b.WriteString("\n\n")
+	fmt.Fprintf(&b, "\n%s%s%s\n\n", grey, snap.FEN, reset)
 	b.WriteString(renderProgressBar(m.index, len(m.snaps)-1))
-	b.WriteString("\n\n")
+	b.WriteString("\n")
 	fmt.Fprintf(&b, "%s← Previous   → Next   F Flip   Home/End   %sQ Quit%s", grey, backHint, reset)
 	return b.String()
 }

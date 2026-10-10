@@ -18,6 +18,7 @@ func TestParseArgs(t *testing.T) {
 		{"single dash", []string{"alice", "-random"}, options{username: "alice", random: true}},
 		{"month", []string{"alice", "--month", "2026-08"}, options{username: "alice", month: "2026-08"}},
 		{"equals form", []string{"alice", "--last=3"}, options{username: "alice", last: 3}},
+		{"month and random", []string{"alice", "--month", "2026-08", "--random"}, options{username: "alice", month: "2026-08", random: true}},
 		{"version needs no username", []string{"--version"}, options{showVersion: true}},
 	}
 
@@ -42,6 +43,9 @@ func TestParseArgsRejectsBadInput(t *testing.T) {
 		"last zero":      {"alice", "--last", "0"},
 		"last negative":  {"alice", "--last", "-3"},
 		"missing value":  {"alice", "--month"},
+
+		"month and last":  {"alice", "--month", "2026-08", "--last", "5"},
+		"last and random": {"alice", "--last", "5", "--random"},
 	}
 
 	for name, args := range bad {

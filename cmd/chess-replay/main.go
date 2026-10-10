@@ -82,6 +82,9 @@ func parseArgs(args []string) (options, error) {
 
 	lastGiven := false
 	fs.Visit(func(f *flag.Flag) { lastGiven = lastGiven || f.Name == "last" })
+	if lastGiven && (opts.month != "" || opts.random) {
+		return opts, errors.New("--last cannot be used with --month or --random.")
+	}
 	if lastGiven && opts.last < 1 {
 		return opts, errors.New("--last expects a positive number.")
 	}
@@ -142,6 +145,9 @@ func load(ctx context.Context, opts options, logf func(string, ...any)) (app.Sou
 		archive, ok := chesscom.ParseArchive(opts.month)
 		if !ok {
 			return app.Source{}, errors.New("--month expects the format YYYY-MM.")
+		}
+		if opts.random {
+			return loader.RandomInMonth(ctx, opts.username, archive)
 		}
 		return loader.Month(ctx, opts.username, archive)
 	case opts.last > 0:

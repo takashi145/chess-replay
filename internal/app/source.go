@@ -170,6 +170,15 @@ func (l Loader) Month(ctx context.Context, username string, archive chesscom.Arc
 	}, nil
 }
 
+// RandomInMonth replays one randomly chosen game from the given month.
+func (l Loader) RandomInMonth(ctx context.Context, username string, archive chesscom.Archive) (Source, error) {
+	src, err := l.Month(ctx, username, archive)
+	if err != nil {
+		return Source{}, err
+	}
+	return Source{Games: []chesscom.Game{src.Games[rand.IntN(len(src.Games))]}, Single: true}, nil
+}
+
 // playableGames returns the non-Chess960 games, newest first.
 func playableGames(games []chesscom.Game) []chesscom.Game {
 	var playable []chesscom.Game

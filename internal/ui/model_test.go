@@ -162,6 +162,17 @@ func TestReplayFlipToggles(t *testing.T) {
 	}
 }
 
+func TestReplayOpensFlippedWhenTheUserPlayedBlack(t *testing.T) {
+	g := makeGame("bob", "1. e4 e5 2. Nf3", 0)
+	g.White, g.Black = g.Black, g.White
+
+	m := New(app.Source{Games: []chesscom.Game{g}, Single: true}, user)
+
+	if !m.flipped || !strings.Contains(m.View(), "h g f e d c b a") {
+		t.Error("expected the board to open flipped")
+	}
+}
+
 func TestReplayShowsMoveLabels(t *testing.T) {
 	m, _ := press(singleModel(t), "right", "right", "right")
 

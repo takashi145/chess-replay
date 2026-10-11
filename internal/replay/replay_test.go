@@ -72,6 +72,20 @@ func TestUnreplayablePGNIsAParseError(t *testing.T) {
 	}
 }
 
+func TestBuildCarriesEachSidesClockForward(t *testing.T) {
+	snaps, err := Build("[Event \"Live Chess\"]\n\n1. e4 {[%clk 0:04:53.5]} 1... e5 {[%clk 0:04:54.8]} 2. Nf3 {[%clk 0:04:50]} *")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	want := [][2]string{{"", ""}, {"0:04:53.5", ""}, {"0:04:53.5", "0:04:54.8"}, {"0:04:50", "0:04:54.8"}}
+	for i, clocks := range want {
+		if snaps[i].WhiteClock != clocks[0] || snaps[i].BlackClock != clocks[1] {
+			t.Errorf("snaps[%d] clocks = %q, %q, want %q, %q", i, snaps[i].WhiteClock, snaps[i].BlackClock, clocks[0], clocks[1])
+		}
+	}
+}
+
 func TestBuildRecordsTheFENOfEachPosition(t *testing.T) {
 	snaps, err := Build("1. e4 e5 2. Nf3")
 	if err != nil {

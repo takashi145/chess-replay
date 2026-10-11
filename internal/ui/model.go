@@ -238,14 +238,20 @@ func (m Model) viewList() string {
 
 func (m Model) viewReplay() string {
 	top, bottom := m.game.Black, m.game.White
+	var topClock, bottomClock string
+	if m.failure == "" {
+		snap := m.snaps[m.index]
+		topClock, bottomClock = snap.BlackClock, snap.WhiteClock
+	}
 	if m.flipped {
 		top, bottom = bottom, top
+		topClock, bottomClock = bottomClock, topClock
 	}
 
 	var b strings.Builder
-	fmt.Fprintf(&b, " %s\n", m.formatPlayer(top))
+	fmt.Fprintf(&b, " %s\n", m.formatPlayer(top, topClock))
 	b.WriteString("          vs\n")
-	fmt.Fprintf(&b, "   %s\n", m.formatPlayer(bottom))
+	fmt.Fprintf(&b, "   %s\n", m.formatPlayer(bottom, bottomClock))
 	fmt.Fprintf(&b, "   %s%s%s\n", grey, formatGameInfo(m.game), reset)
 	fmt.Fprintf(&b, "   %s%s%s\n", grey, m.game.URL, reset)
 	b.WriteString("\n")
@@ -276,16 +282,22 @@ func (m Model) viewReplay() string {
 	return b.String()
 }
 
-func (m Model) formatPlayer(p chesscom.Player) string {
+func (m Model) formatPlayer(p chesscom.Player, clock string) string {
 	label := p.Username
 	if p.Rating != nil {
 		label = fmt.Sprintf("%s (%d)", p.Username, *p.Rating)
 	}
 
+	color := bold
 	if strings.EqualFold(p.Username, m.username) {
-		return yellow + label + reset
+		color = yellow
 	}
-	return bold + label + reset
+
+	line := color + label + reset
+	if clock != "" {
+		line += "  " + grey + clock + " left" + reset
+	}
+	return line
 }
 
 func formatGameInfo(g chesscom.Game) string {

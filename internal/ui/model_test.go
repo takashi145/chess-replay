@@ -173,6 +173,22 @@ func TestReplayOpensFlippedWhenTheUserPlayedBlack(t *testing.T) {
 	}
 }
 
+func TestReplayShowsEachPlayersClock(t *testing.T) {
+	g := makeGame("bob", "[Event \"Live Chess\"]\n\n1. e4 {[%clk 0:04:53.5]} 1... e5 {[%clk 0:04:54.8]} *", 0)
+	m, _ := press(New(app.Source{Games: []chesscom.Game{g}, Single: true}, user), "end")
+
+	lines := strings.Split(m.View(), "\n")
+	if !strings.Contains(lines[0], "0:04:54.8") || !strings.Contains(lines[2], "0:04:53.5") {
+		t.Errorf("black's clock should be on the top line and white's on the bottom:\n%s", m.View())
+	}
+
+	m, _ = press(m, "f")
+	lines = strings.Split(m.View(), "\n")
+	if !strings.Contains(lines[0], "0:04:53.5") || !strings.Contains(lines[2], "0:04:54.8") {
+		t.Errorf("clocks should follow the players when the board is flipped:\n%s", m.View())
+	}
+}
+
 func TestReplayShowsMoveLabels(t *testing.T) {
 	m, _ := press(singleModel(t), "right", "right", "right")
 

@@ -45,6 +45,9 @@ type Snapshot struct {
 	SAN        string // empty for the starting position
 	From, To   *Square
 	FEN        string
+
+	// Time remaining for each side as recorded in the PGN; empty when it was not recorded.
+	WhiteClock, BlackClock string
 }
 
 // Build returns one snapshot per ply, preceded by the starting position.
@@ -63,7 +66,16 @@ func Build(pgn string) ([]Snapshot, error) {
 		FEN:   positions[0].String(),
 	})
 
+	var whiteClock, blackClock string
 	for i, move := range moves {
+		if clock, ok := move.GetCommand("clk"); ok {
+			if i%2 == 0 {
+				whiteClock = clock
+			} else {
+				blackClock = clock
+			}
+		}
+
 		snapshots = append(snapshots, Snapshot{
 			Board:      captureBoard(positions[i+1]),
 			MoveNumber: i + 1,
@@ -71,6 +83,8 @@ func Build(pgn string) ([]Snapshot, error) {
 			From:       toSquare(move.S1()),
 			To:         toSquare(move.S2()),
 			FEN:        positions[i+1].String(),
+			WhiteClock: whiteClock,
+			BlackClock: blackClock,
 		})
 	}
 	return snapshots, nil

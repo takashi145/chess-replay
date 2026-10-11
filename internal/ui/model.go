@@ -88,7 +88,7 @@ func (m *Model) open(g chesscom.Game) {
 		m.failure = err.Error()
 	}
 	m.index = 0
-	m.flipped = false
+	m.flipped = strings.EqualFold(g.Black.Username, m.username)
 	m.replaying = true
 }
 

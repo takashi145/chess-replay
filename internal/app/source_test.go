@@ -210,3 +210,27 @@ func TestMonthWithOnlyChess960Games(t *testing.T) {
 		t.Errorf("err = %v, want AllChess960Error", err)
 	}
 }
+
+func TestRandomInMonthReturnsAPlayableGameFromThatMonth(t *testing.T) {
+	api := &fakeAPI{games: map[chesscom.Archive][]chesscom.Game{
+		aug: {game("a", 1, "chess"), game("960", 2, "chess960"), game("b", 3, "chess")},
+		jul: {game("july", 4, "chess")},
+	}}
+
+	for range 20 {
+		src, err := Loader{API: api}.RandomInMonth(context.Background(), "u", aug)
+
+		if err != nil || !src.Single || len(src.Games) != 1 || !slices.Contains([]string{"a", "b"}, src.Games[0].URL) {
+			t.Fatalf("src = %+v, err = %v", src, err)
+		}
+	}
+}
+
+func TestRandomInMonthWithoutGames(t *testing.T) {
+	_, err := Loader{API: &fakeAPI{}}.RandomInMonth(context.Background(), "u", aug)
+
+	var noGames *chesscom.NoGamesError
+	if !errors.As(err, &noGames) {
+		t.Errorf("err = %v, want NoGamesError", err)
+	}
+}

@@ -3,6 +3,9 @@ package main
 import (
 	"errors"
 	"flag"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/takashi145/chess-replay/internal/app"
@@ -23,6 +26,8 @@ func TestParseArgs(t *testing.T) {
 		{"month and random", []string{"alice", "--month", "2026-08", "--random"}, options{username: "alice", month: "2026-08", random: true}},
 		{"site", []string{"alice", "--site", "lichess"}, options{username: "alice", site: "lichess"}},
 		{"site before username", []string{"--site=chesscom", "alice"}, options{username: "alice", site: "chesscom"}},
+		{"set site needs no username", []string{"--set-site", "lichess"}, options{setSite: "lichess"}},
+		{"show config needs no username", []string{"--show-config"}, options{showConfig: true}},
 		{"version needs no username", []string{"--version"}, options{showVersion: true}},
 	}
 
@@ -50,6 +55,16 @@ func TestParseArgsRejectsBadInput(t *testing.T) {
 		"unknown site":   {"alice", "--site", "nope"},
 		"site no value":  {"alice", "--site"},
 
+		"set unknown site":       {"--set-site", "nope"},
+		"set site no value":      {"--set-site"},
+		"set site empty":         {"--set-site="},
+		"set site and show":      {"--set-site", "lichess", "--show-config"},
+		"set site with name":     {"alice", "--set-site", "lichess"},
+		"set site with site":     {"--set-site", "lichess", "--site", "lichess"},
+		"set site with last":     {"--set-site", "lichess", "--last", "3"},
+		"show config with rand":  {"--show-config", "--random"},
+		"show config with month": {"--show-config", "--month", "2026-08"},
+
 		"month and last":  {"alice", "--month", "2026-08", "--last", "5"},
 		"last and random": {"alice", "--last", "5", "--random"},
 	}
@@ -69,6 +84,31 @@ func TestNewLoaderFollowsTheSite(t *testing.T) {
 		if _, ok := newLoader(site, nil).(app.Loader); !ok {
 			t.Errorf("%q: not a Loader", site)
 		}
+	}
+}
+
+func TestSiteFromFile(t *testing.T) {
+	write := func(content string) string {
+		path := filepath.Join(t.TempDir(), "config.json")
+		if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		return path
+	}
+
+	for content, want := range map[string]string{
+		`{"site": "lichess"}`:  "lichess",
+		`{"site": "chesscom"}`: "chesscom",
+		`{}`:                   "",
+	} {
+		if got, err := siteFromFile(write(content)); err != nil || got != want {
+			t.Errorf("%s: got %q, %v; want %q", content, got, err, want)
+		}
+	}
+
+	path := write(`{"site": "nope"}`)
+	if _, err := siteFromFile(path); err == nil || !strings.Contains(err.Error(), path) {
+		t.Errorf("invalid site: err = %v, want an error naming %s", err, path)
 	}
 }
 

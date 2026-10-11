@@ -124,58 +124,6 @@ func TestRandomLooksAtAtMostSixMonths(t *testing.T) {
 	}
 }
 
-func TestLastListsNewestFirstAndCountsHiddenChess960(t *testing.T) {
-	api := &fakeAPI{
-		archives: []chesscom.Archive{jul, aug},
-		games: map[chesscom.Archive][]chesscom.Game{
-			aug: {game("a", 10, "chess"), game("b", 20, "chess"), game("960", 30, "chess960")},
-			jul: {game("j", 1, "chess")},
-		},
-	}
-
-	src, err := Loader{API: api}.Last(context.Background(), "u", 2)
-
-	if err != nil || src.Single {
-		t.Fatalf("src = %+v, err = %v", src, err)
-	}
-	if !slices.Equal(urls(src.Games), []string{"b", "a"}) || src.Hidden != 1 {
-		t.Errorf("games = %v, hidden = %d", urls(src.Games), src.Hidden)
-	}
-	if len(api.fetched) != 1 {
-		t.Errorf("fetched %v, want it to stop once enough games were found", api.fetched)
-	}
-}
-
-func TestLastCrossesMonthBoundaries(t *testing.T) {
-	api := &fakeAPI{
-		archives: []chesscom.Archive{jul, aug},
-		games: map[chesscom.Archive][]chesscom.Game{
-			aug: {game("a", 10, "chess")},
-			jul: {game("j", 1, "chess")},
-		},
-	}
-
-	src, err := Loader{API: api}.Last(context.Background(), "u", 5)
-
-	if err != nil || !slices.Equal(urls(src.Games), []string{"a", "j"}) {
-		t.Fatalf("src = %+v, err = %v", src, err)
-	}
-}
-
-func TestLastWithOnlyChess960Games(t *testing.T) {
-	api := &fakeAPI{
-		archives: []chesscom.Archive{aug},
-		games:    map[chesscom.Archive][]chesscom.Game{aug: {game("960", 1, "chess960")}},
-	}
-
-	_, err := Loader{API: api}.Last(context.Background(), "u", 5)
-
-	var all *AllChess960Error
-	if !errors.As(err, &all) || all.Count != 1 {
-		t.Errorf("err = %v, want AllChess960Error", err)
-	}
-}
-
 func TestMonthListsPlayableGames(t *testing.T) {
 	api := &fakeAPI{games: map[chesscom.Archive][]chesscom.Game{
 		aug: {game("a", 10, "chess"), game("960", 20, "chess960"), game("b", 30, "chess")},

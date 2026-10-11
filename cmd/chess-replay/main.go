@@ -31,7 +31,6 @@ const usage = `Replay Chess.com public games in the terminal.
 Usage: chess-replay <username> [options]
 
 Options:
-  --last <N>         List the most recent N games to choose from
   --random           Replay a random past game
   --month <YYYY-MM>  List games from a specific month
   --verbose          Print diagnostic information
@@ -40,7 +39,6 @@ Options:
 
 type options struct {
 	username    string
-	last        int
 	random      bool
 	month       string
 	verbose     bool
@@ -56,7 +54,6 @@ func parseArgs(args []string) (options, error) {
 
 	fs := flag.NewFlagSet("chess-replay", flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
-	fs.IntVar(&opts.last, "last", 0, "")
 	fs.BoolVar(&opts.random, "random", false, "")
 	fs.StringVar(&opts.month, "month", "", "")
 	fs.BoolVar(&opts.verbose, "verbose", false, "")
@@ -78,15 +75,6 @@ func parseArgs(args []string) (options, error) {
 
 	if opts.showVersion {
 		return opts, nil
-	}
-
-	lastGiven := false
-	fs.Visit(func(f *flag.Flag) { lastGiven = lastGiven || f.Name == "last" })
-	if lastGiven && (opts.month != "" || opts.random) {
-		return opts, errors.New("--last cannot be used with --month or --random.")
-	}
-	if lastGiven && opts.last < 1 {
-		return opts, errors.New("--last expects a positive number.")
 	}
 
 	if len(positional) != 1 {
@@ -150,8 +138,6 @@ func load(ctx context.Context, opts options, logf func(string, ...any)) (app.Sou
 			return loader.RandomInMonth(ctx, opts.username, archive)
 		}
 		return loader.Month(ctx, opts.username, archive)
-	case opts.last > 0:
-		return loader.Last(ctx, opts.username, opts.last)
 	case opts.random:
 		return loader.Random(ctx, opts.username)
 	default:

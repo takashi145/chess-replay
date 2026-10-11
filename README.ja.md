@@ -55,7 +55,6 @@ chess-replay <username> [options]
 | 引数 / オプション | 説明 |
 |---|---|
 | `<username>` | Chess.com のユーザー名（必須） |
-| `--last <N>` | 直近 N 局を一覧表示し、その中から選ぶ |
 | `--random` | 過去の対局からランダムに 1 局再生する（`--month` と併用すると、その月の対局から選ぶ） |
 | `--month <YYYY-MM>` | 指定した月の対局を一覧表示する |
 | `--verbose` | 診断情報を標準エラー出力に表示する |
@@ -67,9 +66,6 @@ chess-replay <username> [options]
 ```
 # 直近の 1 局を再生
 chess-replay <username>
-
-# 直近 20 局を一覧表示して選ぶ
-chess-replay <username> --last 20
 
 # 2026 年 8 月の対局を一覧表示
 chess-replay <username> --month 2026-08
@@ -83,7 +79,7 @@ chess-replay <username> --month 2026-08 --random
 
 ## 操作方法
 
-**対局一覧**（`--last` / `--month`）
+**対局一覧**（`--month`）
 
 | キー | 操作 |
 |---|---|

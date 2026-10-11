@@ -56,7 +56,6 @@ chess-replay <username> [options]
 | Argument / Option | Description |
 |---|---|
 | `<username>` | Chess.com username (required) |
-| `--last <N>` | List the most recent N games to choose from |
 | `--random` | Replay a random past game (with `--month`, a random game from that month) |
 | `--month <YYYY-MM>` | List games from a specific month |
 | `--verbose` | Print diagnostic information to stderr |
@@ -68,9 +67,6 @@ With no options, it replays your single most recent game.
 ```
 # Replay the single most recent game
 chess-replay <username>
-
-# List the 20 most recent games to pick from
-chess-replay <username> --last 20
 
 # List games played in August 2026
 chess-replay <username> --month 2026-08
@@ -84,7 +80,7 @@ chess-replay <username> --month 2026-08 --random
 
 ## Controls
 
-**Game list** (`--last` / `--month`)
+**Game list** (`--month`)
 
 | Key | Action |
 |---|---|

@@ -106,49 +106,6 @@ func (l Loader) Random(ctx context.Context, username string) (Source, error) {
 	return Source{}, &chesscom.NoGamesError{Username: username}
 }
 
-// Last lists the most recent count games; count must be at least 1.
-func (l Loader) Last(ctx context.Context, username string, count int) (Source, error) {
-	archives, err := l.archives(ctx, username)
-	if err != nil {
-		return Source{}, err
-	}
-
-	var collected []chesscom.Game
-	playableCount := 0
-	for i := len(archives) - 1; i >= 0 && playableCount < count; i-- {
-		games, err := l.games(ctx, username, archives[i])
-		if err != nil {
-			return Source{}, err
-		}
-		collected = append(collected, games...)
-		playableCount += len(playableGames(games))
-	}
-
-	sortNewestFirst(collected)
-
-	var recent []chesscom.Game
-	hidden := 0
-	for _, game := range collected {
-		if game.IsChess960() {
-			hidden++
-		} else {
-			recent = append(recent, game)
-		}
-
-		if len(recent) == count {
-			break
-		}
-	}
-
-	if len(recent) == 0 {
-		if hidden == 0 {
-			return Source{}, &chesscom.NoGamesError{Username: username}
-		}
-		return Source{}, &AllChess960Error{Count: hidden}
-	}
-	return Source{Title: username + " — Recent games (UTC)", Games: recent, Hidden: hidden}, nil
-}
-
 func (l Loader) Month(ctx context.Context, username string, archive chesscom.Archive) (Source, error) {
 	games, err := l.games(ctx, username, archive)
 	if err != nil {

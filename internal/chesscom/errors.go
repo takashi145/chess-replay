@@ -2,10 +2,13 @@ package chesscom
 
 import "fmt"
 
-type PlayerNotFoundError struct{ Username string }
+type PlayerNotFoundError struct {
+	Site     string
+	Username string
+}
 
 func (e *PlayerNotFoundError) Error() string {
-	return fmt.Sprintf("Player %q was not found on Chess.com.", e.Username)
+	return fmt.Sprintf("Player %q was not found on %s.", e.Username, e.Site)
 }
 
 type NoGamesError struct {

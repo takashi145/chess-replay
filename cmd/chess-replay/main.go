@@ -14,6 +14,7 @@ import (
 
 	"github.com/takashi145/chess-replay/internal/app"
 	"github.com/takashi145/chess-replay/internal/chesscom"
+	"github.com/takashi145/chess-replay/internal/lichess"
 	"github.com/takashi145/chess-replay/internal/ui"
 )
 
@@ -26,20 +27,27 @@ const (
 	exitCancelled = 130
 )
 
-const usage = `Replay Chess.com public games in the terminal.
+const (
+	siteChessCom = "chesscom"
+	siteLichess  = "lichess"
+)
+
+const usage = `Replay Chess.com or Lichess public games in the terminal.
 
 Usage: chess-replay <username> [options]
 
 Options:
-  --last <N>         List the most recent N games to choose from
-  --random           Replay a random past game
-  --month <YYYY-MM>  List games from a specific month
-  --verbose          Print diagnostic information
-  --version          Print the version
-  -h, --help         Show this help`
+  --site <chesscom|lichess>  Site to load games from (default: chesscom)
+  --last <N>                 List the most recent N games to choose from
+  --random                   Replay a random past game
+  --month <YYYY-MM>          List games from a specific month
+  --verbose                  Print diagnostic information
+  --version                  Print the version
+  -h, --help                 Show this help`
 
 type options struct {
 	username    string
+	site        string
 	last        int
 	random      bool
 	month       string
@@ -56,6 +64,7 @@ func parseArgs(args []string) (options, error) {
 
 	fs := flag.NewFlagSet("chess-replay", flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
+	fs.StringVar(&opts.site, "site", "", "")
 	fs.IntVar(&opts.last, "last", 0, "")
 	fs.BoolVar(&opts.random, "random", false, "")
 	fs.StringVar(&opts.month, "month", "", "")
@@ -78,6 +87,10 @@ func parseArgs(args []string) (options, error) {
 
 	if opts.showVersion {
 		return opts, nil
+	}
+
+	if opts.site != "" && opts.site != siteChessCom && opts.site != siteLichess {
+		return opts, fmt.Errorf("--site expects %s or %s.", siteChessCom, siteLichess)
 	}
 
 	lastGiven := false
@@ -137,8 +150,24 @@ func run(args []string, stdout, stderr io.Writer) int {
 	return exitOK
 }
 
+// loader is what both sites' loaders offer, one method per mode.
+type loader interface {
+	Latest(ctx context.Context, username string) (app.Source, error)
+	Random(ctx context.Context, username string) (app.Source, error)
+	Last(ctx context.Context, username string, count int) (app.Source, error)
+	Month(ctx context.Context, username string, archive chesscom.Archive) (app.Source, error)
+	RandomInMonth(ctx context.Context, username string, archive chesscom.Archive) (app.Source, error)
+}
+
+func newLoader(site string, logf func(string, ...any)) loader {
+	if site == siteLichess {
+		return app.LichessLoader{API: lichess.New(version, logf), Logf: logf}
+	}
+	return app.Loader{API: chesscom.New(version, logf), Logf: logf}
+}
+
 func load(ctx context.Context, opts options, logf func(string, ...any)) (app.Source, error) {
-	loader := app.Loader{API: chesscom.New(version, logf), Logf: logf}
+	loader := newLoader(opts.site, logf)
 
 	switch {
 	case opts.month != "":

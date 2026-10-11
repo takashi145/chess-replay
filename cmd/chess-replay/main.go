@@ -35,20 +35,26 @@ const (
 const usage = `Replay Chess.com or Lichess public games in the terminal.
 
 Usage: chess-replay <username> [options]
+       chess-replay --set-site <chesscom|lichess>
+       chess-replay --show-config
 
 Options:
-  --site <chesscom|lichess>  Site to load games from (default: chesscom)
-  --random                   Replay a random past game
-  --month <YYYY-MM>          List games from a specific month
-  --verbose                  Print diagnostic information
-  --version                  Print the version
-  -h, --help                 Show this help`
+  --site <chesscom|lichess>      Site to load games from (default: chesscom)
+  --random                       Replay a random past game
+  --month <YYYY-MM>              List games from a specific month
+  --set-site <chesscom|lichess>  Save the site to use when --site is not given
+  --show-config                  Show the config file and the default site
+  --verbose                      Print diagnostic information
+  --version                      Print the version
+  -h, --help                     Show this help`
 
 type options struct {
 	username    string
 	site        string
 	random      bool
 	month       string
+	setSite     string
+	showConfig  bool
 	verbose     bool
 	showVersion bool
 }
@@ -65,6 +71,8 @@ func parseArgs(args []string) (options, error) {
 	fs.StringVar(&opts.site, "site", "", "")
 	fs.BoolVar(&opts.random, "random", false, "")
 	fs.StringVar(&opts.month, "month", "", "")
+	fs.StringVar(&opts.setSite, "set-site", "", "")
+	fs.BoolVar(&opts.showConfig, "show-config", false, "")
 	fs.BoolVar(&opts.verbose, "verbose", false, "")
 	fs.BoolVar(&opts.showVersion, "version", false, "")
 
@@ -86,8 +94,22 @@ func parseArgs(args []string) (options, error) {
 		return opts, nil
 	}
 
-	if opts.site != "" && opts.site != siteChessCom && opts.site != siteLichess {
+	if opts.site != "" && !validSite(opts.site) {
 		return opts, fmt.Errorf("--site expects %s or %s.", siteChessCom, siteLichess)
+	}
+
+	setSiteGiven := false
+	fs.Visit(func(f *flag.Flag) { setSiteGiven = setSiteGiven || f.Name == "set-site" })
+
+	if setSiteGiven || opts.showConfig {
+		if setSiteGiven && !validSite(opts.setSite) {
+			return opts, fmt.Errorf("--set-site expects %s or %s.", siteChessCom, siteLichess)
+		}
+		otherOptions := len(positional) > 0 || opts.random || opts.month != "" || opts.site != ""
+		if (setSiteGiven && opts.showConfig) || otherOptions {
+			return opts, errors.New("--set-site and --show-config cannot be combined with each other or with other options.")
+		}
+		return opts, nil
 	}
 
 	if len(positional) != 1 {
@@ -112,10 +134,22 @@ func run(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stdout, version)
 		return exitOK
 	}
+	if opts.showConfig || opts.setSite != "" {
+		return runConfigCommand(opts, stdout, stderr)
+	}
 
 	if !isatty.IsTerminal(os.Stdin.Fd()) && !isatty.IsCygwinTerminal(os.Stdin.Fd()) {
 		printError(stderr, "chess-replay needs an interactive terminal.")
 		return exitError
+	}
+
+	if opts.site == "" {
+		site, err := defaultSite()
+		if err != nil {
+			printError(stderr, err.Error())
+			return exitError
+		}
+		opts.site = site
 	}
 
 	var logf func(string, ...any)

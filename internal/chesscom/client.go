@@ -64,7 +64,7 @@ type playerDTO struct {
 // Archives returns the months in which the player has games, oldest first.
 func (c *Client) Archives(ctx context.Context, username string) ([]Archive, error) {
 	var resp archivesResponse
-	notFound := &PlayerNotFoundError{Username: username}
+	notFound := &PlayerNotFoundError{Site: "Chess.com", Username: username}
 	if err := c.get(ctx, fmt.Sprintf("%s/player/%s/games/archives", c.baseURL, url.PathEscape(username)), notFound, &resp); err != nil {
 		return nil, err
 	}

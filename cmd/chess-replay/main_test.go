@@ -4,6 +4,8 @@ import (
 	"errors"
 	"flag"
 	"testing"
+
+	"github.com/takashi145/chess-replay/internal/app"
 )
 
 func TestParseArgs(t *testing.T) {
@@ -19,6 +21,8 @@ func TestParseArgs(t *testing.T) {
 		{"month", []string{"alice", "--month", "2026-08"}, options{username: "alice", month: "2026-08"}},
 		{"equals form", []string{"alice", "--month=2026-08"}, options{username: "alice", month: "2026-08"}},
 		{"month and random", []string{"alice", "--month", "2026-08", "--random"}, options{username: "alice", month: "2026-08", random: true}},
+		{"site", []string{"alice", "--site", "lichess"}, options{username: "alice", site: "lichess"}},
+		{"site before username", []string{"--site=chesscom", "alice"}, options{username: "alice", site: "chesscom"}},
 		{"version needs no username", []string{"--version"}, options{showVersion: true}},
 	}
 
@@ -41,11 +45,24 @@ func TestParseArgsRejectsBadInput(t *testing.T) {
 		"unknown option": {"alice", "--nope"},
 		"removed --last": {"alice", "--last", "5"},
 		"missing value":  {"alice", "--month"},
+		"unknown site":   {"alice", "--site", "nope"},
+		"site no value":  {"alice", "--site"},
 	}
 
 	for name, args := range bad {
 		if _, err := parseArgs(args); err == nil {
 			t.Errorf("%s: expected an error", name)
+		}
+	}
+}
+
+func TestNewLoaderFollowsTheSite(t *testing.T) {
+	if _, ok := newLoader("lichess", nil).(app.LichessLoader); !ok {
+		t.Error("lichess: not a LichessLoader")
+	}
+	for _, site := range []string{"", "chesscom"} {
+		if _, ok := newLoader(site, nil).(app.Loader); !ok {
+			t.Errorf("%q: not a Loader", site)
 		}
 	}
 }

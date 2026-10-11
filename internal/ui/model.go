@@ -265,6 +265,10 @@ func (m Model) viewReplay() string {
 	b.WriteString(renderBoard(snap, m.flipped))
 	b.WriteString("\n\n")
 	b.WriteString(formatMove(snap))
+	// The result is shown only at the last move.
+	if m.index == len(m.snaps)-1 {
+		fmt.Fprintf(&b, " · %s", formatResult(m.game, m.username))
+	}
 	fmt.Fprintf(&b, "\n%s%s%s\n\n", grey, snap.FEN, reset)
 	b.WriteString(renderProgressBar(m.index, len(m.snaps)-1))
 	b.WriteString("\n")
@@ -294,6 +298,20 @@ func formatGameInfo(g chesscom.Game) string {
 		rated = "Rated"
 	}
 	return fmt.Sprintf("%s · %s · %s UTC", timeClass, rated, g.EndTime.UTC().Format("2006-01-02 15:04"))
+}
+
+// formatResult describes how the game ended from username's point of view, e.g. "Win by checkmate".
+func formatResult(g chesscom.Game, username string) string {
+	result, reason := chesscom.Describe(g.Player(username), g.Opponent(username))
+	if reason == "" {
+		return result.String()
+	}
+
+	reason = strings.ToLower(reason)
+	if reason == "abandoned" {
+		reason = "abandonment"
+	}
+	return fmt.Sprintf("%s by %s", result, reason)
 }
 
 func formatMove(s replay.Snapshot) string {

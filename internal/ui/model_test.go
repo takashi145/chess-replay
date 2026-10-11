@@ -355,3 +355,40 @@ func TestReplayShowsTheFENAndFitsIn24Lines(t *testing.T) {
 		t.Errorf("replay screen has %d lines, want at most 24", lines)
 	}
 }
+
+func TestReplayShowsTheResultOnlyAtTheLastMove(t *testing.T) {
+	m := singleModel(t)
+
+	for _, key := range []string{"right", "left"} {
+		m, _ = press(m, key)
+		if view := m.View(); strings.Contains(view, "Win by checkmate") {
+			t.Errorf("result shown before the last move:\n%s", view)
+		}
+	}
+
+	m, _ = press(m, "end")
+	if view := m.View(); !strings.Contains(view, "2. Nf3 · Win by checkmate") {
+		t.Errorf("result missing at the last move:\n%s", view)
+	}
+}
+
+func TestFormatResult(t *testing.T) {
+	g := makeGame("bob", "1. e4", 0)
+
+	if got := formatResult(g, user); got != "Win by checkmate" {
+		t.Errorf("winner: formatResult = %q", got)
+	}
+	if got := formatResult(g, "bob"); got != "Loss by checkmate" {
+		t.Errorf("loser: formatResult = %q", got)
+	}
+
+	g.White.RawResult, g.Black.RawResult = "agreed", "agreed"
+	if got := formatResult(g, user); got != "Draw by agreement" {
+		t.Errorf("draw: formatResult = %q", got)
+	}
+
+	g.White.RawResult, g.Black.RawResult = "win", "abandoned"
+	if got := formatResult(g, user); got != "Win by abandonment" {
+		t.Errorf("abandoned: formatResult = %q", got)
+	}
+}

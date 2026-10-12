@@ -10,7 +10,7 @@ import (
 	"github.com/takashi145/chess-replay/internal/chesscom"
 )
 
-// maxRandomArchives bounds how many months --random will fetch while looking for a playable game.
+// maxRandomArchives bounds how many months --random will fetch while looking for a game.
 const maxRandomArchives = 6
 
 // API is the part of the Chess.com client the app needs.
@@ -23,14 +23,7 @@ type API interface {
 type Source struct {
 	Title  string
 	Games  []chesscom.Game // newest first
-	Hidden int             // Chess960 games left out of Games
 	Single bool
-}
-
-type AllChess960Error struct{ Count int }
-
-func (e *AllChess960Error) Error() string {
-	return fmt.Sprintf("All %d games are Chess960, which is not supported yet.", e.Count)
 }
 
 type Loader struct {
@@ -99,8 +92,8 @@ func (l Loader) Random(ctx context.Context, username string) (Source, error) {
 			return Source{}, err
 		}
 
-		if playable := playableGames(games); len(playable) > 0 {
-			return Source{Games: []chesscom.Game{playable[rand.IntN(len(playable))]}, Single: true}, nil
+		if len(games) > 0 {
+			return Source{Games: []chesscom.Game{games[rand.IntN(len(games))]}, Single: true}, nil
 		}
 	}
 	return Source{}, &chesscom.NoGamesError{Username: username}
@@ -115,15 +108,10 @@ func (l Loader) Month(ctx context.Context, username string, archive chesscom.Arc
 		return Source{}, &chesscom.NoGamesError{Username: username, Archive: &archive}
 	}
 
-	playable := playableGames(games)
-	if len(playable) == 0 {
-		return Source{}, &AllChess960Error{Count: len(games)}
-	}
-
+	sortNewestFirst(games)
 	return Source{
-		Title:  fmt.Sprintf("%s — Games in %s (UTC)", username, archive),
-		Games:  playable,
-		Hidden: len(games) - len(playable),
+		Title: fmt.Sprintf("%s — Games in %s (UTC)", username, archive),
+		Games: games,
 	}, nil
 }
 
@@ -134,18 +122,6 @@ func (l Loader) RandomInMonth(ctx context.Context, username string, archive ches
 		return Source{}, err
 	}
 	return Source{Games: []chesscom.Game{src.Games[rand.IntN(len(src.Games))]}, Single: true}, nil
-}
-
-// playableGames returns the non-Chess960 games, newest first.
-func playableGames(games []chesscom.Game) []chesscom.Game {
-	var playable []chesscom.Game
-	for _, g := range games {
-		if !g.IsChess960() {
-			playable = append(playable, g)
-		}
-	}
-	sortNewestFirst(playable)
-	return playable
 }
 
 func sortNewestFirst(games []chesscom.Game) {

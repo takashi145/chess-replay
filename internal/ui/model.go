@@ -40,7 +40,6 @@ type entry struct {
 type Model struct {
 	username string
 	title    string
-	hidden   int
 	entries  []entry
 
 	width, height int
@@ -58,7 +57,6 @@ func New(src app.Source, username string) Model {
 	m := Model{
 		username: username,
 		title:    src.Title,
-		hidden:   src.Hidden,
 		width:    defaultWidth,
 		height:   defaultHeight,
 	}
@@ -192,11 +190,7 @@ func (m Model) View() string {
 func (m Model) viewList() string {
 	var b strings.Builder
 
-	summary := fmt.Sprintf("%s(%d games", grey, len(m.entries))
-	if m.hidden > 0 {
-		summary += fmt.Sprintf(",%s \x1b[33m%d hidden (Chess960 unsupported)%s", reset, m.hidden, grey)
-	}
-	summary += ")" + reset
+	summary := fmt.Sprintf("%s(%d games)%s", grey, len(m.entries), reset)
 	fmt.Fprintf(&b, "%s%s%s %s\n\n", bold, m.title, reset, summary)
 
 	showTimeClass := m.width >= 70

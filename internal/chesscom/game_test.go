@@ -15,15 +15,6 @@ func makeGame(rules string) Game {
 	}
 }
 
-func TestIsChess960(t *testing.T) {
-	cases := map[string]bool{"chess960": true, "CHESS960": true, "chess": false, "bughouse": false}
-	for rules, want := range cases {
-		if got := makeGame(rules).IsChess960(); got != want {
-			t.Errorf("IsChess960(%q) = %v, want %v", rules, got, want)
-		}
-	}
-}
-
 func TestPlayerMatchesUsernameCaseInsensitively(t *testing.T) {
 	g := makeGame("chess")
 

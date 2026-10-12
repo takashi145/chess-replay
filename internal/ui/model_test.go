@@ -84,7 +84,6 @@ func listModel(t *testing.T) Model {
 			makeGame("carol", "1. d4 d5 2. c4", 2),
 			makeGame("broken", "1. e4 e4", 1),
 		},
-		Hidden: 2,
 	}
 	return New(src, user)
 }
@@ -229,7 +228,7 @@ func TestListShowsGamesAndCounts(t *testing.T) {
 	next, _ := listModel(t).Update(tea.WindowSizeMsg{Width: 120, Height: 30})
 	view := next.(Model).View()
 
-	for _, want := range []string{"Recent games", "3 games", "2 hidden (Chess960 unsupported)", "vs bob", "vs carol", "2 moves", "3 moves", "? moves"} {
+	for _, want := range []string{"Recent games", "3 games", "vs bob", "vs carol", "2 moves", "3 moves", "? moves"} {
 		if !strings.Contains(view, want) {
 			t.Errorf("list view missing %q:\n%s", want, view)
 		}

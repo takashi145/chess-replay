@@ -90,11 +90,11 @@ func TestLatestWithoutArchivesIsNoGames(t *testing.T) {
 	}
 }
 
-func TestRandomReturnsAPlayableGame(t *testing.T) {
+func TestRandomSkipsMonthsWithoutGames(t *testing.T) {
 	api := &fakeAPI{
 		archives: []chesscom.Archive{jul, aug},
 		games: map[chesscom.Archive][]chesscom.Game{
-			aug: {game("960", 1, "chess960")},
+			aug: {},
 			jul: {game("ok", 2, "chess")},
 		},
 	}
@@ -124,7 +124,7 @@ func TestRandomLooksAtAtMostSixMonths(t *testing.T) {
 	}
 }
 
-func TestMonthListsPlayableGames(t *testing.T) {
+func TestMonthListsAllGamesNewestFirst(t *testing.T) {
 	api := &fakeAPI{games: map[chesscom.Archive][]chesscom.Game{
 		aug: {game("a", 10, "chess"), game("960", 20, "chess960"), game("b", 30, "chess")},
 	}}
@@ -134,7 +134,7 @@ func TestMonthListsPlayableGames(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !slices.Equal(urls(src.Games), []string{"b", "a"}) || src.Hidden != 1 || src.Title != "u — Games in 2026-08 (UTC)" {
+	if !slices.Equal(urls(src.Games), []string{"b", "960", "a"}) || src.Title != "u — Games in 2026-08 (UTC)" {
 		t.Errorf("src = %+v", src)
 	}
 }
@@ -148,18 +148,7 @@ func TestMonthWithoutGames(t *testing.T) {
 	}
 }
 
-func TestMonthWithOnlyChess960Games(t *testing.T) {
-	api := &fakeAPI{games: map[chesscom.Archive][]chesscom.Game{aug: {game("960", 1, "chess960"), game("960b", 2, "chess960")}}}
-
-	_, err := Loader{API: api}.Month(context.Background(), "u", aug)
-
-	var all *AllChess960Error
-	if !errors.As(err, &all) || all.Count != 2 {
-		t.Errorf("err = %v, want AllChess960Error", err)
-	}
-}
-
-func TestRandomInMonthReturnsAPlayableGameFromThatMonth(t *testing.T) {
+func TestRandomInMonthReturnsAGameFromThatMonth(t *testing.T) {
 	api := &fakeAPI{games: map[chesscom.Archive][]chesscom.Game{
 		aug: {game("a", 1, "chess"), game("960", 2, "chess960"), game("b", 3, "chess")},
 		jul: {game("july", 4, "chess")},
@@ -168,7 +157,7 @@ func TestRandomInMonthReturnsAPlayableGameFromThatMonth(t *testing.T) {
 	for range 20 {
 		src, err := Loader{API: api}.RandomInMonth(context.Background(), "u", aug)
 
-		if err != nil || !src.Single || len(src.Games) != 1 || !slices.Contains([]string{"a", "b"}, src.Games[0].URL) {
+		if err != nil || !src.Single || len(src.Games) != 1 || !slices.Contains([]string{"a", "960", "b"}, src.Games[0].URL) {
 			t.Fatalf("src = %+v, err = %v", src, err)
 		}
 	}

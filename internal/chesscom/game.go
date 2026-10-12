@@ -24,8 +24,6 @@ type Game struct {
 	Rules     string
 }
 
-func (g Game) IsChess960() bool { return strings.EqualFold(g.Rules, "chess960") }
-
 func (g Game) Player(username string) Player {
 	if g.isWhite(username) {
 		return g.White

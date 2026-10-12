@@ -34,16 +34,10 @@ func New(version string, logf func(format string, args ...any)) *Client {
 		logf = func(string, ...any) {}
 	}
 	return &Client{
-		baseURL:   defaultBaseURL,
-		userAgent: fmt.Sprintf("chess-replay/%s (+https://github.com/takashi145/chess-replay)", version),
-		// A month of games streams for a while, so only the wait for the response headers is limited.
-		httpClient: &http.Client{Transport: &http.Transport{
-			Proxy:                 http.ProxyFromEnvironment,
-			DialContext:           (&net.Dialer{Timeout: 20 * time.Second}).DialContext,
-			TLSHandshakeTimeout:   20 * time.Second,
-			ResponseHeaderTimeout: 20 * time.Second,
-		}},
-		logf: logf,
+		baseURL:    defaultBaseURL,
+		userAgent:  fmt.Sprintf("chess-replay/%s (+https://github.com/takashi145/chess-replay)", version),
+		httpClient: &http.Client{Timeout: 60 * time.Second},
+		logf:       logf,
 	}
 }
 
@@ -119,6 +113,9 @@ func (c *Client) Games(ctx context.Context, username string, q Query) (Page, err
 			if ctx.Err() != nil {
 				return Page{}, ctx.Err()
 			}
+			if isTimeout(err) {
+				return Page{}, &chesscom.ConnectionError{Message: "The request to Lichess timed out.", Err: err}
+			}
 			return Page{}, errors.New("Lichess API returned an unreadable response.")
 		}
 
@@ -130,6 +127,11 @@ func (c *Client) Games(ctx context.Context, username string, q Query) (Page, err
 			page.Games = append(page.Games, game)
 		}
 	}
+}
+
+func isTimeout(err error) bool {
+	var netErr net.Error
+	return errors.As(err, &netErr) && netErr.Timeout()
 }
 
 func (c *Client) get(ctx context.Context, rawURL, username string) (io.ReadCloser, error) {
@@ -147,8 +149,7 @@ func (c *Client) get(ctx context.Context, rawURL, username string) (io.ReadClose
 		if ctx.Err() != nil {
 			return nil, ctx.Err()
 		}
-		var netErr net.Error
-		if errors.As(err, &netErr) && netErr.Timeout() {
+		if isTimeout(err) {
 			return nil, &chesscom.ConnectionError{Message: "The request to Lichess timed out.", Err: err}
 		}
 		return nil, &chesscom.ConnectionError{Message: "Could not connect to Lichess.", Err: err}

@@ -277,6 +277,22 @@ func TestGamesConnectionError(t *testing.T) {
 	}
 }
 
+func TestGamesStalledWhileReadingTimesOut(t *testing.T) {
+	c := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(finishedGame + "\n"))
+		w.(http.Flusher).Flush()
+		<-r.Context().Done() // Send nothing more.
+	})
+	c.httpClient.Timeout = 200 * time.Millisecond
+
+	_, err := c.Games(context.Background(), "u", Query{})
+
+	var conn *chesscom.ConnectionError
+	if !errors.As(err, &conn) || conn.Message != "The request to Lichess timed out." {
+		t.Errorf("err = %v, want a timed out ConnectionError", err)
+	}
+}
+
 func TestGamesCancelledContextPropagates(t *testing.T) {
 	c := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {})
 	ctx, cancel := context.WithCancel(context.Background())

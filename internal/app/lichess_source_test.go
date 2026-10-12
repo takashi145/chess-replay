@@ -13,7 +13,7 @@ import (
 )
 
 // fakeLichess serves games newest first, honouring Max and Until like the real API does.
-// It uses a game's EndTime where the real API uses its start time.
+// A Lichess game's EndTime is its start time, which is what the real API filters on.
 type fakeLichess struct {
 	games   []chesscom.Game
 	queries []lichess.Query

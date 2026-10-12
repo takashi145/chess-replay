@@ -48,14 +48,13 @@ type Query struct {
 }
 
 type gameDTO struct {
-	ID         string `json:"id"`
-	Rated      bool   `json:"rated"`
-	Variant    string `json:"variant"`
-	Speed      string `json:"speed"`
-	CreatedAt  int64  `json:"createdAt"`
-	LastMoveAt int64  `json:"lastMoveAt"`
-	Status     string `json:"status"`
-	Players    struct {
+	ID        string `json:"id"`
+	Rated     bool   `json:"rated"`
+	Variant   string `json:"variant"`
+	Speed     string `json:"speed"`
+	CreatedAt int64  `json:"createdAt"`
+	Status    string `json:"status"`
+	Players   struct {
 		White playerDTO `json:"white"`
 		Black playerDTO `json:"black"`
 	} `json:"players"`
@@ -178,7 +177,7 @@ func (d gameDTO) toGame(baseURL string) chesscom.Game {
 	}
 	return chesscom.Game{
 		PGN:       d.PGN,
-		EndTime:   time.UnixMilli(d.LastMoveAt).UTC(),
+		EndTime:   time.UnixMilli(d.CreatedAt).UTC(),
 		TimeClass: d.Speed,
 		Rated:     d.Rated,
 		White:     chesscom.Player{Username: d.Players.White.name(), Rating: d.Players.White.Rating, RawResult: white},

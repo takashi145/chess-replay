@@ -99,7 +99,7 @@ func TestGamesConvertsFields(t *testing.T) {
 	if g.TimeClass != "blitz" || !g.Rated || g.Rules != "chess" {
 		t.Errorf("TimeClass = %q, Rated = %v, Rules = %q", g.TimeClass, g.Rated, g.Rules)
 	}
-	if want := time.UnixMilli(1700000000000).UTC(); !g.EndTime.Equal(want) {
+	if want := time.UnixMilli(1699999000000).UTC(); !g.EndTime.Equal(want) {
 		t.Errorf("EndTime = %v, want %v", g.EndTime, want)
 	}
 	if want := c.baseURL + "/abc12345"; g.URL != want {

@@ -220,8 +220,10 @@ func rawResults(status, winner string) (white, black string) {
 		loser = "checkmated"
 	case "resign":
 		loser = "resigned"
-	case "timeout", "outoftime":
+	case "outoftime":
 		loser = "timeout"
+	case "timeout":
+		loser = "abandoned"
 	}
 
 	switch winner {

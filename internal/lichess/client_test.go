@@ -320,14 +320,15 @@ func TestRawResultsAreUnderstoodByDescribe(t *testing.T) {
 		{"resign", "white", "w", chesscom.Win, "Resignation"},
 		{"resign", "black", "w", chesscom.Loss, "Resignation"},
 		{"outoftime", "white", "w", chesscom.Win, "Timeout"},
-		{"timeout", "black", "w", chesscom.Loss, "Timeout"},
+		{"timeout", "black", "w", chesscom.Loss, "Abandoned"},
+		{"timeout", "white", "w", chesscom.Win, "Abandoned"},
 		{"outoftime", "", "w", chesscom.Draw, "Timeout vs Insufficient Material"},
 		{"aborted", "", "w", chesscom.NoResult, "Aborted"},
 		{"noStart", "", "w", chesscom.NoResult, "Not started"},
 		{"draw", "", "w", chesscom.Draw, ""},
 		{"stalemate", "", "w", chesscom.Draw, "Stalemate"},
 		{"insufficientMaterialClaim", "", "w", chesscom.Draw, "Insufficient Material"},
-		{"variantEnd", "white", "w", chesscom.Win, "variantEnd"},
+		{"variantEnd", "white", "w", chesscom.Win, "Variant rule"},
 	}
 	for _, tc := range cases {
 		white, black := rawResults(tc.status, tc.winner)

@@ -81,6 +81,8 @@ func describeReason(raw string) string {
 		return "Aborted"
 	case "nostart":
 		return "Not started"
+	case "variantend":
+		return "Variant rule"
 	case "timevsinsufficient":
 		return "Timeout vs Insufficient Material"
 	case "win":

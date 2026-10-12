@@ -2,9 +2,9 @@
 
 English | [日本語](README.ja.md)
 
-A tool to replay Chess.com games in the terminal.
+A tool to step through past Chess.com and Lichess games move by move in the terminal.
 
-This project is not affiliated with or endorsed by Chess.com.
+This project is not affiliated with or endorsed by Chess.com or Lichess.
 
 <img width="653" height="393" alt="ChessReplay replay screen" src="https://github.com/user-attachments/assets/78f51984-0309-4661-a09d-cfb5e7eedb98" />
 
@@ -57,11 +57,14 @@ chess-replay <username> [options]
 
 | Argument / Option | Description |
 |---|---|
-| `<username>` | Chess.com username (required) |
+| `<username>` | Chess.com or Lichess username (required, except with `--set-site` and `--show-config`) |
+| `--site <chesscom\|lichess>` | Site to load games from (default: `chesscom`) |
 | `--month <YYYY-MM>` | List games from a specific month |
+| `--set-site <chesscom\|lichess>` | Save the site to use when `--site` is not given, then exit |
+| `--show-config` | Show the config file's location and the current default site, then exit |
 | `--verbose` | Print diagnostic information to stderr |
 
-With no options, it replays your single most recent game.
+With no options, it replays your single most recent game. The site is Chess.com unless you pass `--site` or have saved another one with `--set-site`.
 
 ### Examples
 
@@ -69,8 +72,17 @@ With no options, it replays your single most recent game.
 # Replay the single most recent game
 chess-replay <username>
 
+# Replay the single most recent game of a Lichess player
+chess-replay --site lichess <username>
+
 # List games played in August 2026
 chess-replay <username> --month 2026-08
+
+# Make Lichess the default site
+chess-replay --set-site lichess
+
+# Show the config file and the current default site
+chess-replay --show-config
 ```
 
 ## Controls
@@ -82,6 +94,8 @@ chess-replay <username> --month 2026-08
 | `↑` / `↓` | Move selection |
 | `Enter` | Replay selected game |
 | `Q` / `Esc` | Quit |
+
+Lichess lists load 30 games at a time. Select **Load more games** at the bottom and press `Enter` to load the next ones.
 
 **Replay screen**
 

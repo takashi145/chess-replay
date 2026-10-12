@@ -150,5 +150,5 @@ func playableGames(games []chesscom.Game) []chesscom.Game {
 }
 
 func sortNewestFirst(games []chesscom.Game) {
-	slices.SortStableFunc(games, func(a, b chesscom.Game) int { return b.EndTime.Compare(a.EndTime) })
+	slices.SortStableFunc(games, func(a, b chesscom.Game) int { return b.PlayedAt.Compare(a.PlayedAt) })
 }

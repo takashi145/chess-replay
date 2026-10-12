@@ -159,7 +159,7 @@ func (d gameDTO) toGame() Game {
 	}
 	return Game{
 		PGN:       d.PGN,
-		EndTime:   time.Unix(d.EndTime, 0).UTC(),
+		PlayedAt:  time.Unix(d.EndTime, 0).UTC(),
 		TimeClass: d.TimeClass,
 		Rated:     d.Rated,
 		White:     Player{Username: d.White.Username, Rating: d.White.Rating, RawResult: d.White.Result},

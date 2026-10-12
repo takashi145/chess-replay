@@ -77,8 +77,8 @@ func TestGamesSkipsGamesWithoutPGNAndConvertsFields(t *testing.T) {
 	if g.White.Rating == nil || *g.White.Rating != 1500 || g.Black.Rating != nil {
 		t.Errorf("ratings = %v / %v", g.White.Rating, g.Black.Rating)
 	}
-	if g.EndTime.Unix() != 1700000000 || g.EndTime.Location().String() != "UTC" {
-		t.Errorf("EndTime = %v", g.EndTime)
+	if g.PlayedAt.Unix() != 1700000000 || g.PlayedAt.Location().String() != "UTC" {
+		t.Errorf("PlayedAt = %v", g.PlayedAt)
 	}
 	if g.TimeClass != "rapid" || !g.Rated || g.URL != "u1" {
 		t.Errorf("game = %+v", g)

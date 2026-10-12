@@ -177,7 +177,7 @@ func (d gameDTO) toGame(baseURL string) chesscom.Game {
 	}
 	return chesscom.Game{
 		PGN:       d.PGN,
-		EndTime:   time.UnixMilli(d.CreatedAt).UTC(),
+		PlayedAt:  time.UnixMilli(d.CreatedAt).UTC(),
 		TimeClass: d.Speed,
 		Rated:     d.Rated,
 		White:     chesscom.Player{Username: d.Players.White.name(), Rating: d.Players.White.Rating, RawResult: white},

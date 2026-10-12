@@ -285,7 +285,7 @@ func (m Model) viewList() string {
 			line += fmt.Sprintf(" %-10s", moves)
 		}
 		if showDate {
-			line += " " + e.game.EndTime.UTC().Format("2006-01-02 15:04")
+			line += " " + e.game.PlayedAt.UTC().Format("2006-01-02 15:04")
 		}
 
 		row := fmt.Sprintf("%3d. %s", i+1, line)
@@ -393,7 +393,7 @@ func formatGameInfo(g chesscom.Game) string {
 	if g.Rated {
 		rated = "Rated"
 	}
-	return fmt.Sprintf("%s · %s · %s UTC", timeClass, rated, g.EndTime.UTC().Format("2006-01-02 15:04"))
+	return fmt.Sprintf("%s · %s · %s UTC", timeClass, rated, g.PlayedAt.UTC().Format("2006-01-02 15:04"))
 }
 
 // formatResult describes how the game ended from username's point of view, e.g. "Win by checkmate".

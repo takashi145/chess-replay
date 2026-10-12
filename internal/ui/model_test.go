@@ -20,7 +20,7 @@ func makeGame(opponent, pgn string, minute int) chesscom.Game {
 	rating := 1500
 	return chesscom.Game{
 		PGN:       pgn,
-		EndTime:   time.Date(2026, 8, 1, 12, minute, 0, 0, time.UTC),
+		PlayedAt:  time.Date(2026, 8, 1, 12, minute, 0, 0, time.UTC),
 		TimeClass: "blitz",
 		Rated:     true,
 		White:     chesscom.Player{Username: user, Rating: &rating, RawResult: "win"},

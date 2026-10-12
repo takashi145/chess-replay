@@ -13,7 +13,7 @@ import (
 )
 
 // fakeLichess serves games newest first, honouring Max and Until like the real API does.
-// A Lichess game's EndTime is its start time, which is what the real API filters on.
+// A Lichess game's PlayedAt is its start time, which is what the real API filters on.
 type fakeLichess struct {
 	games   []chesscom.Game
 	queries []lichess.Query
@@ -24,7 +24,7 @@ func (f *fakeLichess) Games(_ context.Context, _ string, q lichess.Query) (liche
 
 	var games []chesscom.Game
 	for _, g := range f.games {
-		if q.Until.IsZero() || g.EndTime.Before(q.Until) {
+		if q.Until.IsZero() || g.PlayedAt.Before(q.Until) {
 			games = append(games, g)
 		}
 	}
@@ -32,7 +32,7 @@ func (f *fakeLichess) Games(_ context.Context, _ string, q lichess.Query) (liche
 	var page lichess.Page
 	if q.Max > 0 && len(games) >= q.Max {
 		games = games[:q.Max]
-		page.Next = games[len(games)-1].EndTime
+		page.Next = games[len(games)-1].PlayedAt
 	}
 	page.Games = slices.Clone(games)
 	return page, nil
@@ -43,7 +43,7 @@ func manyGames(n int) []chesscom.Game {
 	var games []chesscom.Game
 	for i := range n {
 		g := game(fmt.Sprintf("g%d", i), 0, "chess")
-		g.EndTime = time.Date(2026, 9, 28, 12, 0, 0, 0, time.UTC).Add(-time.Duration(i) * time.Minute)
+		g.PlayedAt = time.Date(2026, 9, 28, 12, 0, 0, 0, time.UTC).Add(-time.Duration(i) * time.Minute)
 		games = append(games, g)
 	}
 	return games
@@ -162,7 +162,7 @@ func TestLichessMonthPagesThroughTheGames(t *testing.T) {
 		t.Errorf("pages do not follow on from each other: %v %v %v", pages[0][0], pages[1][0], pages[2][9])
 	}
 	firstQuery, nextQuery := api.queries[0], api.queries[1]
-	if !nextQuery.Since.Equal(firstQuery.Since) || !nextQuery.Until.Equal(api.games[pageSize-1].EndTime) {
+	if !nextQuery.Since.Equal(firstQuery.Since) || !nextQuery.Until.Equal(api.games[pageSize-1].PlayedAt) {
 		t.Errorf("next query = %+v, want the same month, ending at the last game of the first page", nextQuery)
 	}
 }

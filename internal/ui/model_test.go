@@ -86,7 +86,6 @@ func listModel(t *testing.T) Model {
 			makeGame("carol", "1. d4 d5 2. c4", 2),
 			makeGame("broken", "1. e4 e4", 1),
 		},
-		Hidden: 2,
 	}
 	return New(src, user)
 }
@@ -231,7 +230,7 @@ func TestListShowsGamesAndCounts(t *testing.T) {
 	next, _ := listModel(t).Update(tea.WindowSizeMsg{Width: 120, Height: 30})
 	view := next.(Model).View()
 
-	for _, want := range []string{"Recent games", "3 games", "2 hidden (Chess960 unsupported)", "vs bob", "vs carol", "2 moves", "3 moves", "? moves"} {
+	for _, want := range []string{"Recent games", "3 games", "vs bob", "vs carol", "2 moves", "3 moves", "? moves"} {
 		if !strings.Contains(view, want) {
 			t.Errorf("list view missing %q:\n%s", want, view)
 		}
@@ -437,7 +436,7 @@ func moreModel(more func(context.Context) (app.Source, error)) Model {
 }
 
 func nextGames(context.Context) (app.Source, error) {
-	return app.Source{Games: []chesscom.Game{makeGame("dave", "1. c4 c5", 1)}, Hidden: 1}, nil
+	return app.Source{Games: []chesscom.Game{makeGame("dave", "1. c4 c5", 1)}}, nil
 }
 
 func TestListOffersToLoadMoreOnlyWhileThereAreMoreGames(t *testing.T) {
@@ -473,8 +472,8 @@ func TestEnterOnTheLoadMoreRowAddsTheNextGames(t *testing.T) {
 	next, _ := m.Update(cmd())
 	m = next.(Model)
 
-	if len(m.entries) != 3 || m.hidden != 1 || m.loading {
-		t.Errorf("entries = %d, hidden = %d, loading = %v", len(m.entries), m.hidden, m.loading)
+	if len(m.entries) != 3 || m.loading {
+		t.Errorf("entries = %d, loading = %v", len(m.entries), m.loading)
 	}
 	if m.cursor != 2 {
 		t.Errorf("cursor = %d, want the first new game", m.cursor)
@@ -528,16 +527,5 @@ func TestLoadMoreFailureKeepsTheListAndCanBeRetried(t *testing.T) {
 
 	if got := len(next.(Model).entries); got != 3 {
 		t.Errorf("entries after retry = %d, want 3", got)
-	}
-}
-
-func TestListWithNoGamesYetOffersToLoadMore(t *testing.T) {
-	m := New(app.Source{Title: "alice — Games in 2026-08 (UTC)", Hidden: 30, More: nextGames}, user)
-
-	if view := m.View(); !strings.Contains(view, "+ Load more games") {
-		t.Errorf("view should offer more games:\n%s", view)
-	}
-	if _, cmd := press(m, "enter"); cmd == nil {
-		t.Error("enter on the load more row did not fetch")
 	}
 }

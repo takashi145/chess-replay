@@ -41,7 +41,6 @@ type entry struct {
 type Model struct {
 	username  string
 	title     string
-	hidden    int
 	entries   []entry
 	more      func(ctx context.Context) (app.Source, error) // nil when there are no more games to fetch
 	loading   bool
@@ -62,7 +61,6 @@ func New(src app.Source, username string) Model {
 	m := Model{
 		username: username,
 		title:    src.Title,
-		hidden:   src.Hidden,
 		more:     src.More,
 		width:    defaultWidth,
 		height:   defaultHeight,
@@ -141,7 +139,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		first, waiting := len(m.entries), m.onMoreRow()
 		m.addEntries(msg.src.Games)
-		m.hidden += msg.src.Hidden
 		m.more = msg.src.More
 		// A cursor the user moved away while loading stays where it is.
 		if waiting && len(msg.src.Games) > 0 {
@@ -251,11 +248,7 @@ func (m Model) viewList() string {
 	if m.more != nil {
 		plus = "+"
 	}
-	summary := fmt.Sprintf("%s(%d%s games", grey, len(m.entries), plus)
-	if m.hidden > 0 {
-		summary += fmt.Sprintf(",%s \x1b[33m%d hidden (Chess960 unsupported)%s", reset, m.hidden, grey)
-	}
-	summary += ")" + reset
+	summary := fmt.Sprintf("%s(%d%s games)%s", grey, len(m.entries), plus, reset)
 	fmt.Fprintf(&b, "%s%s%s %s\n\n", bold, m.title, reset, summary)
 
 	showTimeClass := m.width >= 70

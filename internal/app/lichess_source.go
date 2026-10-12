@@ -42,13 +42,6 @@ func (l LichessLoader) games(ctx context.Context, username string, q lichess.Que
 	return page, nil
 }
 
-func noPlayableGames(username string, count int, archive *chesscom.Archive) error {
-	if count == 0 {
-		return &chesscom.NoGamesError{Username: username, Archive: archive}
-	}
-	return &AllChess960Error{Count: count}
-}
-
 func monthQuery(archive chesscom.Archive) lichess.Query {
 	since := time.Date(archive.Year, time.Month(archive.Month), 1, 0, 0, 0, 0, time.UTC)
 	return lichess.Query{Since: since, Until: since.AddDate(0, 1, 0)}
@@ -60,11 +53,10 @@ func (l LichessLoader) Latest(ctx context.Context, username string) (Source, err
 		return Source{}, err
 	}
 
-	playable := playableGames(page.Games)
-	if len(playable) == 0 {
-		return Source{}, noPlayableGames(username, len(page.Games), nil)
+	if len(page.Games) == 0 {
+		return Source{}, &chesscom.NoGamesError{Username: username}
 	}
-	return Source{Games: playable[:1], Single: true}, nil
+	return Source{Games: page.Games[:1], Single: true}, nil
 }
 
 func (l LichessLoader) Random(ctx context.Context, username string) (Source, error) {
@@ -95,11 +87,10 @@ func (l LichessLoader) RandomInMonth(ctx context.Context, username string, archi
 }
 
 func randomGame(username string, games []chesscom.Game, archive *chesscom.Archive) (Source, error) {
-	playable := playableGames(games)
-	if len(playable) == 0 {
-		return Source{}, noPlayableGames(username, len(games), archive)
+	if len(games) == 0 {
+		return Source{}, &chesscom.NoGamesError{Username: username, Archive: archive}
 	}
-	return Source{Games: []chesscom.Game{playable[rand.IntN(len(playable))]}, Single: true}, nil
+	return Source{Games: []chesscom.Game{games[rand.IntN(len(games))]}, Single: true}, nil
 }
 
 func (l LichessLoader) list(ctx context.Context, username string, q lichess.Query, title string, archive *chesscom.Archive) (Source, error) {
@@ -107,8 +98,8 @@ func (l LichessLoader) list(ctx context.Context, username string, q lichess.Quer
 	if err != nil {
 		return Source{}, err
 	}
-	if len(src.Games) == 0 && src.More == nil {
-		return Source{}, noPlayableGames(username, src.Hidden, archive)
+	if len(src.Games) == 0 {
+		return Source{}, &chesscom.NoGamesError{Username: username, Archive: archive}
 	}
 
 	src.Title = title
@@ -123,8 +114,7 @@ func (l LichessLoader) page(ctx context.Context, username string, q lichess.Quer
 		return Source{}, err
 	}
 
-	src := Source{Games: playableGames(page.Games)}
-	src.Hidden = len(page.Games) - len(src.Games)
+	src := Source{Games: page.Games}
 	if !page.Next.IsZero() {
 		next := q
 		next.Until = page.Next

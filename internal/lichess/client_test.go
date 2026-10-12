@@ -130,7 +130,7 @@ func TestGamesKeepsNewestFirstOrder(t *testing.T) {
 	}
 }
 
-func TestGamesSkipsGamesThatCannotBeShown(t *testing.T) {
+func TestGamesKeepsGamesWithoutAResultOrMoves(t *testing.T) {
 	c := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(
 			`{"id":"aborted","status":"aborted","variant":"standard","moves":"e4","pgn":"1. e4"}` + "\n" +
@@ -145,8 +145,12 @@ func TestGamesSkipsGamesThatCannotBeShown(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if len(games) != 1 || games[0].URL != c.baseURL+"/abc12345" {
-		t.Errorf("games = %+v, want only the finished game", games)
+	if len(games) != 4 {
+		t.Fatalf("games = %+v, want all four", games)
+	}
+	result, reason := chesscom.Describe(games[0].Player("a"), games[0].Opponent("a"))
+	if result != chesscom.NoResult || reason != "Aborted" {
+		t.Errorf("aborted game: got %v, %q", result, reason)
 	}
 }
 
@@ -196,15 +200,14 @@ func TestGamesWithNoGamesIsNotAnError(t *testing.T) {
 
 func TestGamesNextPointsPastTheLastGameSent(t *testing.T) {
 	c := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
-		// The last game is left out of Games, but the next page must still start after it.
 		w.Write([]byte(`{"id":"a","status":"mate","winner":"white","variant":"standard","createdAt":300,"moves":"e4","pgn":"1. e4"}` + "\n" +
-			`{"id":"b","status":"aborted","variant":"standard","createdAt":200,"moves":"e4","pgn":"1. e4"}` + "\n"))
+			`{"id":"b","status":"mate","winner":"black","variant":"standard","createdAt":200,"moves":"e4","pgn":"1. e4"}` + "\n"))
 	})
 
 	page, err := c.Games(context.Background(), "u", Query{Max: 2})
 
-	if err != nil || len(page.Games) != 1 || !page.Next.Equal(time.UnixMilli(200)) {
-		t.Errorf("page = %+v, err = %v, want one game and Next at 200ms", page, err)
+	if err != nil || len(page.Games) != 2 || !page.Next.Equal(time.UnixMilli(200)) {
+		t.Errorf("page = %+v, err = %v, want two games and Next at 200ms", page, err)
 	}
 }
 
@@ -318,17 +321,16 @@ func TestRawResultsAreUnderstoodByDescribe(t *testing.T) {
 		{"resign", "black", "w", chesscom.Loss, "Resignation"},
 		{"outoftime", "white", "w", chesscom.Win, "Timeout"},
 		{"timeout", "black", "w", chesscom.Loss, "Timeout"},
+		{"outoftime", "", "w", chesscom.Draw, "Timeout vs Insufficient Material"},
+		{"aborted", "", "w", chesscom.NoResult, "Aborted"},
+		{"noStart", "", "w", chesscom.NoResult, "Not started"},
 		{"draw", "", "w", chesscom.Draw, ""},
 		{"stalemate", "", "w", chesscom.Draw, "Stalemate"},
 		{"insufficientMaterialClaim", "", "w", chesscom.Draw, "Insufficient Material"},
 		{"variantEnd", "white", "w", chesscom.Win, "variantEnd"},
 	}
 	for _, tc := range cases {
-		white, black, ok := rawResults(tc.status, tc.winner)
-		if !ok {
-			t.Errorf("%s/%s: not ok", tc.status, tc.winner)
-			continue
-		}
+		white, black := rawResults(tc.status, tc.winner)
 		result, reason := chesscom.Describe(
 			chesscom.Player{Username: "w", RawResult: white},
 			chesscom.Player{Username: "b", RawResult: black},
@@ -336,16 +338,5 @@ func TestRawResultsAreUnderstoodByDescribe(t *testing.T) {
 		if result != tc.result || reason != tc.reason {
 			t.Errorf("%s/%s: got %v, %q; want %v, %q", tc.status, tc.winner, result, reason, tc.result, tc.reason)
 		}
-	}
-}
-
-func TestRawResultsRejectsGamesWithoutAResult(t *testing.T) {
-	for _, status := range []string{"created", "started", "aborted", "noStart", "unknownFinish"} {
-		if _, _, ok := rawResults(status, "white"); ok {
-			t.Errorf("%s: ok, want not ok", status)
-		}
-	}
-	if _, _, ok := rawResults("resign", ""); ok {
-		t.Error("a decisive status without a winner: ok, want not ok")
 	}
 }

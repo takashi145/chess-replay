@@ -420,6 +420,11 @@ func TestFormatResult(t *testing.T) {
 	if got := formatResult(g, user); got != "Win by abandonment" {
 		t.Errorf("abandoned: formatResult = %q", got)
 	}
+
+	g.White.RawResult, g.Black.RawResult = "aborted", "aborted"
+	if got := formatResult(g, user); got != "No result (aborted)" {
+		t.Errorf("aborted: formatResult = %q", got)
+	}
 }
 
 // moreModel is a list of two games with more to fetch; the fetch is whatever more does.

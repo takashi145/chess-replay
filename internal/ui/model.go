@@ -272,7 +272,7 @@ func (m Model) viewList() string {
 		opponent := e.game.Opponent(m.username)
 		result, _ := chesscom.Describe(e.game.Player(m.username), opponent)
 
-		line := fmt.Sprintf("vs %-16s %-6s", opponent.Username, result)
+		line := fmt.Sprintf("vs %-16s %-9s", opponent.Username, result)
 		if showTimeClass {
 			line += fmt.Sprintf(" %-8s", e.game.TimeClass)
 		}
@@ -398,6 +398,9 @@ func formatGameInfo(g chesscom.Game) string {
 // formatResult describes how the game ended from username's point of view, e.g. "Win by checkmate".
 func formatResult(g chesscom.Game, username string) string {
 	result, reason := chesscom.Describe(g.Player(username), g.Opponent(username))
+	if result == chesscom.NoResult {
+		return fmt.Sprintf("%s (%s)", result, strings.ToLower(reason))
+	}
 	if reason == "" {
 		return result.String()
 	}

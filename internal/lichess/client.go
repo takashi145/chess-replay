@@ -79,7 +79,7 @@ type Page struct {
 }
 
 // Games returns the player's finished games, newest first, with their clocks in the PGN.
-// Games that cannot be replayed or have no result, such as aborted ones, are left out.
+// Every game is returned, whether or not it can be replayed.
 func (c *Client) Games(ctx context.Context, username string, q Query) (Page, error) {
 	params := url.Values{}
 	params.Set("clocks", "true")
@@ -123,9 +123,7 @@ func (c *Client) Games(ctx context.Context, username string, q Query) (Page, err
 		if q.Max > 0 && sent == q.Max {
 			page.Next = time.UnixMilli(dto.CreatedAt).UTC()
 		}
-		if game, ok := dto.toGame(c.baseURL); ok {
-			page.Games = append(page.Games, game)
-		}
+		page.Games = append(page.Games, dto.toGame(c.baseURL))
 	}
 }
 
@@ -171,11 +169,8 @@ func (c *Client) get(ctx context.Context, rawURL, username string) (io.ReadClose
 	return nil, fmt.Errorf("Lichess API returned %s.", resp.Status)
 }
 
-func (d gameDTO) toGame(baseURL string) (chesscom.Game, bool) {
-	white, black, ok := rawResults(d.Status, d.Winner)
-	if !ok || d.Moves == "" || d.PGN == "" {
-		return chesscom.Game{}, false
-	}
+func (d gameDTO) toGame(baseURL string) chesscom.Game {
+	white, black := rawResults(d.Status, d.Winner)
 
 	rules := "chess"
 	if d.Variant != "standard" {
@@ -190,7 +185,7 @@ func (d gameDTO) toGame(baseURL string) (chesscom.Game, bool) {
 		Black:     chesscom.Player{Username: d.Players.Black.name(), Rating: d.Players.Black.Rating, RawResult: black},
 		URL:       baseURL + "/" + d.ID,
 		Rules:     rules,
-	}, true
+	}
 }
 
 // noAccountName stands in for players without an account.
@@ -204,15 +199,19 @@ func (p playerDTO) name() string {
 }
 
 // rawResults expresses how a game ended in the result words chesscom.Describe understands.
-// It reports false for games without a result, such as aborted ones.
-func rawResults(status, winner string) (white, black string, ok bool) {
+// A status that is neither a draw nor a win for someone, such as "aborted", is passed through as it is.
+func rawResults(status, winner string) (white, black string) {
 	switch status {
 	case "draw":
-		return "draw", "draw", true
+		return "draw", "draw"
 	case "stalemate":
-		return "stalemate", "stalemate", true
+		return "stalemate", "stalemate"
 	case "insufficientMaterialClaim":
-		return "insufficient", "insufficient", true
+		return "insufficient", "insufficient"
+	}
+	// A player ran out of time but the other side could not have won: Lichess scores it as a draw.
+	if status == "outoftime" && winner == "" {
+		return "timevsinsufficient", "timevsinsufficient"
 	}
 
 	loser := status
@@ -223,15 +222,13 @@ func rawResults(status, winner string) (white, black string, ok bool) {
 		loser = "resigned"
 	case "timeout", "outoftime":
 		loser = "timeout"
-	case "created", "started", "aborted", "noStart", "unknownFinish":
-		return "", "", false
 	}
 
 	switch winner {
 	case "white":
-		return "win", loser, true
+		return "win", loser
 	case "black":
-		return loser, "win", true
+		return loser, "win"
 	}
-	return "", "", false
+	return status, status
 }

@@ -15,7 +15,7 @@ func TestDescribeWinnerReadsReasonFromOpponent(t *testing.T) {
 }
 
 func TestDescribeDrawVariants(t *testing.T) {
-	for _, raw := range []string{"agreed", "repetition", "stalemate", "insufficient", "50move", "timevsinsufficient"} {
+	for _, raw := range []string{"agreed", "repetition", "stalemate", "insufficient", "50move", "timevsinsufficient", "draw"} {
 		if result, _ := Describe(player(raw), player(raw)); result != Draw {
 			t.Errorf("Describe(%q) = %v, want Draw", raw, result)
 		}
@@ -48,6 +48,12 @@ func TestDescribeKnownReasons(t *testing.T) {
 		if _, reason := Describe(player(raw), player("win")); reason != want {
 			t.Errorf("reason for %q = %q, want %q", raw, reason, want)
 		}
+	}
+}
+
+func TestDescribePlainDrawHasNoReason(t *testing.T) {
+	if _, reason := Describe(player("draw"), player("draw")); reason != "" {
+		t.Errorf("reason = %q, want none", reason)
 	}
 }
 

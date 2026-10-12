@@ -2,6 +2,7 @@
 package ui
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"strings"
@@ -38,10 +39,13 @@ type entry struct {
 // Model shows a list of games to choose from, and replays the chosen one.
 // A source with a single game skips the list.
 type Model struct {
-	username string
-	title    string
-	hidden   int
-	entries  []entry
+	username  string
+	title     string
+	hidden    int
+	entries   []entry
+	more      func(ctx context.Context) (app.Source, error) // nil when there are no more games to fetch
+	loading   bool
+	loadError string
 
 	width, height int
 	cursor, top   int
@@ -59,6 +63,7 @@ func New(src app.Source, username string) Model {
 		username: username,
 		title:    src.Title,
 		hidden:   src.Hidden,
+		more:     src.More,
 		width:    defaultWidth,
 		height:   defaultHeight,
 	}
@@ -68,14 +73,41 @@ func New(src app.Source, username string) Model {
 		return m
 	}
 
-	for _, g := range src.Games {
+	m.addEntries(src.Games)
+	return m
+}
+
+func (m *Model) addEntries(games []chesscom.Game) {
+	for _, g := range games {
 		moves, err := replay.CountMoves(g.PGN)
 		if err != nil {
 			moves = -1
 		}
 		m.entries = append(m.entries, entry{game: g, moves: moves})
 	}
-	return m
+}
+
+// rows is the number of rows the cursor can be on: the games, then "Load more" while there are more to fetch.
+func (m Model) rows() int {
+	if m.more != nil {
+		return len(m.entries) + 1
+	}
+	return len(m.entries)
+}
+
+func (m Model) onMoreRow() bool { return m.more != nil && m.cursor == len(m.entries) }
+
+type moreLoaded struct {
+	src app.Source
+	err error
+}
+
+func (m Model) loadMore() tea.Cmd {
+	more := m.more
+	return func() tea.Msg {
+		src, err := more(context.Background())
+		return moreLoaded{src: src, err: err}
+	}
 }
 
 func (m *Model) open(g chesscom.Game) {
@@ -100,6 +132,24 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width, m.height = msg.Width, msg.Height
 		m.scrollIntoView()
 		return m, nil
+	case moreLoaded:
+		m.loading = false
+		if msg.err != nil {
+			m.loadError = msg.err.Error()
+			return m, nil
+		}
+
+		first, waiting := len(m.entries), m.onMoreRow()
+		m.addEntries(msg.src.Games)
+		m.hidden += msg.src.Hidden
+		m.more = msg.src.More
+		// A cursor the user moved away while loading stays where it is.
+		if waiting && len(msg.src.Games) > 0 {
+			m.cursor = first
+		}
+		m.cursor = min(m.cursor, m.rows()-1)
+		m.scrollIntoView()
+		return m, nil
 	case tea.KeyMsg:
 		key := strings.ToLower(msg.String())
 		if key == "ctrl+c" {
@@ -114,7 +164,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) updateList(key string) (tea.Model, tea.Cmd) {
-	n := len(m.entries)
+	n := m.rows()
 
 	switch key {
 	case "up", "k":
@@ -130,7 +180,12 @@ func (m Model) updateList(key string) (tea.Model, tea.Cmd) {
 	case "end":
 		m.cursor = n - 1
 	case "enter":
-		m.open(m.entries[m.cursor].game)
+		if !m.onMoreRow() {
+			m.open(m.entries[m.cursor].game)
+		} else if !m.loading {
+			m.loading, m.loadError = true, ""
+			return m, m.loadMore()
+		}
 	case "q", "esc":
 		return m, tea.Quit
 	}
@@ -168,7 +223,7 @@ func (m Model) updateReplay(key string) (tea.Model, tea.Cmd) {
 func (m Model) openedFromList() bool { return len(m.entries) > 0 }
 
 func (m Model) pageSize() int {
-	return max(minPageSize, min(m.height-listReservedLines, len(m.entries)))
+	return max(minPageSize, min(m.height-listReservedLines, m.rows()))
 }
 
 func (m *Model) scrollIntoView() {
@@ -179,7 +234,7 @@ func (m *Model) scrollIntoView() {
 	if m.cursor >= m.top+size {
 		m.top = m.cursor - size + 1
 	}
-	m.top = max(0, min(m.top, len(m.entries)-size))
+	m.top = max(0, min(m.top, m.rows()-size))
 }
 
 func (m Model) View() string {
@@ -192,7 +247,11 @@ func (m Model) View() string {
 func (m Model) viewList() string {
 	var b strings.Builder
 
-	summary := fmt.Sprintf("%s(%d games", grey, len(m.entries))
+	plus := ""
+	if m.more != nil {
+		plus = "+"
+	}
+	summary := fmt.Sprintf("%s(%d%s games", grey, len(m.entries), plus)
 	if m.hidden > 0 {
 		summary += fmt.Sprintf(",%s \x1b[33m%d hidden (Chess960 unsupported)%s", reset, m.hidden, grey)
 	}
@@ -203,13 +262,18 @@ func (m Model) viewList() string {
 	showMoves := m.width >= 85
 	showDate := m.width >= 100
 
-	end := min(m.top+m.pageSize(), len(m.entries))
+	end := min(m.top+m.pageSize(), m.rows())
 	for i := m.top; i < end; i++ {
+		if i == len(m.entries) {
+			b.WriteString(m.viewMoreRow(i == m.cursor))
+			continue
+		}
+
 		e := m.entries[i]
 		opponent := e.game.Opponent(m.username)
 		result, _ := chesscom.Describe(e.game.Player(m.username), opponent)
 
-		line := fmt.Sprintf("vs %-16s %-6s", opponent.Username, result)
+		line := fmt.Sprintf("vs %-16s %-9s", opponent.Username, result)
 		if showTimeClass {
 			line += fmt.Sprintf(" %-8s", e.game.TimeClass)
 		}
@@ -221,7 +285,7 @@ func (m Model) viewList() string {
 			line += fmt.Sprintf(" %-10s", moves)
 		}
 		if showDate {
-			line += " " + e.game.EndTime.UTC().Format("2006-01-02 15:04")
+			line += " " + e.game.PlayedAt.UTC().Format("2006-01-02 15:04")
 		}
 
 		row := fmt.Sprintf("%3d. %s", i+1, line)
@@ -232,8 +296,28 @@ func (m Model) viewList() string {
 		}
 	}
 
-	fmt.Fprintf(&b, "\n%s↑/↓ Move   Enter Replay   Q Quit%s", grey, reset)
+	action := "Replay"
+	if m.onMoreRow() {
+		action = "Load more"
+	}
+	fmt.Fprintf(&b, "\n%s↑/↓ Move   Enter %s   Q Quit%s", grey, action, reset)
 	return b.String()
+}
+
+func (m Model) viewMoreRow(selected bool) string {
+	text := "+ Load more games"
+	switch {
+	case m.loading:
+		text = "Loading..."
+	case m.loadError != "":
+		text = fmt.Sprintf("Could not load more games: %s (Enter to retry)", m.loadError)
+	}
+
+	row := "     " + text // Lines up with the numbered rows.
+	if selected {
+		return fmt.Sprintf("%s> %s%s\n", cyan, row, reset)
+	}
+	return fmt.Sprintf("  %s\n", row)
 }
 
 func (m Model) viewReplay() string {
@@ -309,12 +393,15 @@ func formatGameInfo(g chesscom.Game) string {
 	if g.Rated {
 		rated = "Rated"
 	}
-	return fmt.Sprintf("%s · %s · %s UTC", timeClass, rated, g.EndTime.UTC().Format("2006-01-02 15:04"))
+	return fmt.Sprintf("%s · %s · %s UTC", timeClass, rated, g.PlayedAt.UTC().Format("2006-01-02 15:04"))
 }
 
 // formatResult describes how the game ended from username's point of view, e.g. "Win by checkmate".
 func formatResult(g chesscom.Game, username string) string {
 	result, reason := chesscom.Describe(g.Player(username), g.Opponent(username))
+	if result == chesscom.NoResult {
+		return fmt.Sprintf("%s (%s)", result, strings.ToLower(reason))
+	}
 	if reason == "" {
 		return result.String()
 	}

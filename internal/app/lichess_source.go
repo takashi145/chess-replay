@@ -1,0 +1,136 @@
+package app
+
+import (
+	"context"
+	"fmt"
+	"math/rand/v2"
+	"time"
+
+	"github.com/takashi145/chess-replay/internal/chesscom"
+	"github.com/takashi145/chess-replay/internal/lichess"
+)
+
+const (
+	// latestWindow is how many recent games the default mode looks through for a playable one.
+	latestWindow = 20
+	// randomWindow is how many recent games --random picks from.
+	randomWindow = 100
+	// randomMonthWindow is how many of a month's newest games --month --random picks from.
+	randomMonthWindow = 500
+	// pageSize is how many games a list fetches at a time.
+	pageSize = 30
+)
+
+type LichessAPI interface {
+	Games(ctx context.Context, username string, q lichess.Query) (lichess.Page, error)
+}
+
+// LichessLoader chooses games from Lichess for each command-line mode, like Loader does for Chess.com.
+type LichessLoader struct {
+	API  LichessAPI
+	Logf func(format string, args ...any)
+}
+
+func (l LichessLoader) games(ctx context.Context, username string, q lichess.Query) (lichess.Page, error) {
+	page, err := l.API.Games(ctx, username, q)
+	if err != nil {
+		return lichess.Page{}, err
+	}
+	if l.Logf != nil {
+		l.Logf("Fetched %d games", len(page.Games))
+	}
+	return page, nil
+}
+
+func noPlayableGames(username string, count int, archive *chesscom.Archive) error {
+	if count == 0 {
+		return &chesscom.NoGamesError{Username: username, Archive: archive}
+	}
+	return &AllChess960Error{Count: count}
+}
+
+func monthQuery(archive chesscom.Archive) lichess.Query {
+	since := time.Date(archive.Year, time.Month(archive.Month), 1, 0, 0, 0, 0, time.UTC)
+	return lichess.Query{Since: since, Until: since.AddDate(0, 1, 0)}
+}
+
+func (l LichessLoader) Latest(ctx context.Context, username string) (Source, error) {
+	page, err := l.games(ctx, username, lichess.Query{Max: latestWindow})
+	if err != nil {
+		return Source{}, err
+	}
+
+	playable := playableGames(page.Games)
+	if len(playable) == 0 {
+		return Source{}, noPlayableGames(username, len(page.Games), nil)
+	}
+	return Source{Games: playable[:1], Single: true}, nil
+}
+
+func (l LichessLoader) Random(ctx context.Context, username string) (Source, error) {
+	page, err := l.games(ctx, username, lichess.Query{Max: randomWindow})
+	if err != nil {
+		return Source{}, err
+	}
+
+	return randomGame(username, page.Games, nil)
+}
+
+// Month lists the games started in the given month, a page at a time.
+func (l LichessLoader) Month(ctx context.Context, username string, archive chesscom.Archive) (Source, error) {
+	title := fmt.Sprintf("%s — Games in %s (UTC)", username, archive)
+	return l.list(ctx, username, monthQuery(archive), title, &archive)
+}
+
+// RandomInMonth replays one game chosen from the given month.
+func (l LichessLoader) RandomInMonth(ctx context.Context, username string, archive chesscom.Archive) (Source, error) {
+	q := monthQuery(archive)
+	q.Max = randomMonthWindow
+	page, err := l.games(ctx, username, q)
+	if err != nil {
+		return Source{}, err
+	}
+
+	return randomGame(username, page.Games, &archive)
+}
+
+func randomGame(username string, games []chesscom.Game, archive *chesscom.Archive) (Source, error) {
+	playable := playableGames(games)
+	if len(playable) == 0 {
+		return Source{}, noPlayableGames(username, len(games), archive)
+	}
+	return Source{Games: []chesscom.Game{playable[rand.IntN(len(playable))]}, Single: true}, nil
+}
+
+func (l LichessLoader) list(ctx context.Context, username string, q lichess.Query, title string, archive *chesscom.Archive) (Source, error) {
+	src, err := l.page(ctx, username, q)
+	if err != nil {
+		return Source{}, err
+	}
+	if len(src.Games) == 0 && src.More == nil {
+		return Source{}, noPlayableGames(username, src.Hidden, archive)
+	}
+
+	src.Title = title
+	return src, nil
+}
+
+// page fetches one page of games. Its More fetches the page after it.
+func (l LichessLoader) page(ctx context.Context, username string, q lichess.Query) (Source, error) {
+	q.Max = pageSize
+	page, err := l.games(ctx, username, q)
+	if err != nil {
+		return Source{}, err
+	}
+
+	src := Source{Games: playableGames(page.Games)}
+	src.Hidden = len(page.Games) - len(src.Games)
+	if !page.Next.IsZero() {
+		next := q
+		next.Until = page.Next
+		src.More = func(ctx context.Context) (Source, error) {
+			return l.page(ctx, username, next)
+		}
+	}
+	return src, nil
+}

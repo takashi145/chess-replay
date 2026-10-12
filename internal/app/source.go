@@ -25,6 +25,7 @@ type Source struct {
 	Games  []chesscom.Game // newest first
 	Hidden int             // Chess960 games left out of Games
 	Single bool
+	More   func(ctx context.Context) (Source, error) // fetches the games after these; nil when there are none
 }
 
 type AllChess960Error struct{ Count int }
@@ -149,5 +150,5 @@ func playableGames(games []chesscom.Game) []chesscom.Game {
 }
 
 func sortNewestFirst(games []chesscom.Game) {
-	slices.SortStableFunc(games, func(a, b chesscom.Game) int { return b.EndTime.Compare(a.EndTime) })
+	slices.SortStableFunc(games, func(a, b chesscom.Game) int { return b.PlayedAt.Compare(a.PlayedAt) })
 }

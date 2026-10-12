@@ -4,6 +4,8 @@ English | [日本語](README.ja.md)
 
 A tool to replay Chess.com games in the terminal.
 
+This project is not affiliated with or endorsed by Chess.com.
+
 <img width="653" height="393" alt="ChessReplay replay screen" src="https://github.com/user-attachments/assets/78f51984-0309-4661-a09d-cfb5e7eedb98" />
 
 ## Installation

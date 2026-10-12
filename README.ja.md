@@ -2,6 +2,8 @@
 
 Chess.com の対局をターミナルで再生するツールです。
 
+このプロジェクトは非公式のツールです。Chess.com とは関係がなく、Chess.com から公認されたものでもありません。
+
 <img width="653" height="393" alt="ChessReplay の再生画面" src="https://github.com/user-attachments/assets/78f51984-0309-4661-a09d-cfb5e7eedb98" />
 
 ## インストール

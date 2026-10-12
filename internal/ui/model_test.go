@@ -484,6 +484,18 @@ func TestEnterOnTheLoadMoreRowAddsTheNextGames(t *testing.T) {
 	}
 }
 
+func TestCursorMovedAwayWhileLoadingStaysPut(t *testing.T) {
+	m, cmd := press(moreModel(nextGames), "end", "enter")
+	m, _ = press(m, "up")
+
+	next, _ := m.Update(cmd())
+	m = next.(Model)
+
+	if len(m.entries) != 3 || m.cursor != 1 {
+		t.Errorf("entries = %d, cursor = %d, want the cursor to stay on the second game", len(m.entries), m.cursor)
+	}
+}
+
 func TestEnterWhileLoadingDoesNotFetchAgain(t *testing.T) {
 	m, _ := press(moreModel(nextGames), "end", "enter")
 

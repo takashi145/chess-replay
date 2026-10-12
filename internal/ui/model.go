@@ -139,11 +139,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 
-		first := len(m.entries)
+		first, waiting := len(m.entries), m.onMoreRow()
 		m.addEntries(msg.src.Games)
 		m.hidden += msg.src.Hidden
 		m.more = msg.src.More
-		if len(msg.src.Games) > 0 {
+		// A cursor the user moved away while loading stays where it is.
+		if waiting && len(msg.src.Games) > 0 {
 			m.cursor = first
 		}
 		m.cursor = min(m.cursor, m.rows()-1)

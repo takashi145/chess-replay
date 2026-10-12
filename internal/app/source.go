@@ -24,6 +24,7 @@ type Source struct {
 	Title  string
 	Games  []chesscom.Game // newest first
 	Single bool
+	More   func(ctx context.Context) (Source, error) // fetches the games after these; nil when there are none
 }
 
 type Loader struct {
@@ -125,5 +126,5 @@ func (l Loader) RandomInMonth(ctx context.Context, username string, archive ches
 }
 
 func sortNewestFirst(games []chesscom.Game) {
-	slices.SortStableFunc(games, func(a, b chesscom.Game) int { return b.EndTime.Compare(a.EndTime) })
+	slices.SortStableFunc(games, func(a, b chesscom.Game) int { return b.PlayedAt.Compare(a.PlayedAt) })
 }

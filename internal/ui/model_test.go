@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"context"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -18,7 +20,7 @@ func makeGame(opponent, pgn string, minute int) chesscom.Game {
 	rating := 1500
 	return chesscom.Game{
 		PGN:       pgn,
-		EndTime:   time.Date(2026, 8, 1, 12, minute, 0, 0, time.UTC),
+		PlayedAt:  time.Date(2026, 8, 1, 12, minute, 0, 0, time.UTC),
 		TimeClass: "blitz",
 		Rated:     true,
 		White:     chesscom.Player{Username: user, Rating: &rating, RawResult: "win"},
@@ -416,5 +418,114 @@ func TestFormatResult(t *testing.T) {
 	g.White.RawResult, g.Black.RawResult = "win", "abandoned"
 	if got := formatResult(g, user); got != "Win by abandonment" {
 		t.Errorf("abandoned: formatResult = %q", got)
+	}
+
+	g.White.RawResult, g.Black.RawResult = "aborted", "aborted"
+	if got := formatResult(g, user); got != "No result (aborted)" {
+		t.Errorf("aborted: formatResult = %q", got)
+	}
+}
+
+// moreModel is a list of two games with more to fetch; the fetch is whatever more does.
+func moreModel(more func(context.Context) (app.Source, error)) Model {
+	return New(app.Source{
+		Title: "alice — Recent games (UTC)",
+		Games: []chesscom.Game{makeGame("bob", "1. e4 e5", 3), makeGame("carol", "1. d4 d5", 2)},
+		More:  more,
+	}, user)
+}
+
+func nextGames(context.Context) (app.Source, error) {
+	return app.Source{Games: []chesscom.Game{makeGame("dave", "1. c4 c5", 1)}}, nil
+}
+
+func TestListOffersToLoadMoreOnlyWhileThereAreMoreGames(t *testing.T) {
+	if view := moreModel(nextGames).View(); !strings.Contains(view, "+ Load more games") || !strings.Contains(view, "2+ games") {
+		t.Errorf("view should offer more games:\n%s", view)
+	}
+	if view := listModel(t).View(); strings.Contains(view, "Load more") || strings.Contains(view, "+ games") {
+		t.Errorf("view should not offer more games:\n%s", view)
+	}
+}
+
+func TestLoadMoreRowIsTheLastStopOfTheCursor(t *testing.T) {
+	m := moreModel(nextGames)
+
+	m, _ = press(m, "down", "down")
+	if !m.onMoreRow() || !strings.Contains(m.View(), "Enter Load more") {
+		t.Fatalf("cursor = %d, want the load more row:\n%s", m.cursor, m.View())
+	}
+
+	m, _ = press(m, "down")
+	if m.cursor != 0 {
+		t.Errorf("cursor = %d, want it to wrap to the first game", m.cursor)
+	}
+}
+
+func TestEnterOnTheLoadMoreRowAddsTheNextGames(t *testing.T) {
+	m, cmd := press(moreModel(nextGames), "end", "enter")
+
+	if cmd == nil || !m.loading || !strings.Contains(m.View(), "Loading...") {
+		t.Fatalf("loading = %v, cmd = %v:\n%s", m.loading, cmd != nil, m.View())
+	}
+
+	next, _ := m.Update(cmd())
+	m = next.(Model)
+
+	if len(m.entries) != 3 || m.loading {
+		t.Errorf("entries = %d, loading = %v", len(m.entries), m.loading)
+	}
+	if m.cursor != 2 {
+		t.Errorf("cursor = %d, want the first new game", m.cursor)
+	}
+	if view := m.View(); !strings.Contains(view, "vs dave") || strings.Contains(view, "Load more") {
+		t.Errorf("view should show the new game and no more offer:\n%s", view)
+	}
+}
+
+func TestCursorMovedAwayWhileLoadingStaysPut(t *testing.T) {
+	m, cmd := press(moreModel(nextGames), "end", "enter")
+	m, _ = press(m, "up")
+
+	next, _ := m.Update(cmd())
+	m = next.(Model)
+
+	if len(m.entries) != 3 || m.cursor != 1 {
+		t.Errorf("entries = %d, cursor = %d, want the cursor to stay on the second game", len(m.entries), m.cursor)
+	}
+}
+
+func TestEnterWhileLoadingDoesNotFetchAgain(t *testing.T) {
+	m, _ := press(moreModel(nextGames), "end", "enter")
+
+	_, cmd := press(m, "enter")
+
+	if cmd != nil {
+		t.Error("a second enter started another fetch")
+	}
+}
+
+func TestLoadMoreFailureKeepsTheListAndCanBeRetried(t *testing.T) {
+	calls := 0
+	m, cmd := press(moreModel(func(ctx context.Context) (app.Source, error) {
+		calls++
+		if calls == 1 {
+			return app.Source{}, errors.New("no connection")
+		}
+		return nextGames(ctx)
+	}), "end", "enter")
+
+	next, _ := m.Update(cmd())
+	m = next.(Model)
+
+	if len(m.entries) != 2 || m.loading || !strings.Contains(m.View(), "Could not load more games: no connection (Enter to retry)") {
+		t.Fatalf("entries = %d, loading = %v:\n%s", len(m.entries), m.loading, m.View())
+	}
+
+	m, cmd = press(m, "enter")
+	next, _ = m.Update(cmd())
+
+	if got := len(next.(Model).entries); got != 3 {
+		t.Errorf("entries after retry = %d, want 3", got)
 	}
 }

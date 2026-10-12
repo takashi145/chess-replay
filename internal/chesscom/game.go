@@ -15,7 +15,7 @@ type Player struct {
 
 type Game struct {
 	PGN       string
-	EndTime   time.Time
+	PlayedAt  time.Time
 	TimeClass string
 	Rated     bool
 	White     Player

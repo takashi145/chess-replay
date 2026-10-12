@@ -27,9 +27,9 @@ func (f *fakeAPI) Games(_ context.Context, _ string, a chesscom.Archive) ([]ches
 
 func game(id string, minute int, rules string) chesscom.Game {
 	return chesscom.Game{
-		URL:     id,
-		Rules:   rules,
-		EndTime: time.Date(2026, 8, 1, 12, minute, 0, 0, time.UTC),
+		URL:      id,
+		Rules:    rules,
+		PlayedAt: time.Date(2026, 8, 1, 12, minute, 0, 0, time.UTC),
 	}
 }
 

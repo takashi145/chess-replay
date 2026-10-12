@@ -8,6 +8,7 @@ const (
 	Win Result = iota
 	Loss
 	Draw
+	NoResult // the game was not finished, e.g. it was aborted
 )
 
 func (r Result) String() string {
@@ -16,6 +17,8 @@ func (r Result) String() string {
 		return "Win"
 	case Draw:
 		return "Draw"
+	case NoResult:
+		return "No result"
 	default:
 		return "Loss"
 	}
@@ -24,6 +27,11 @@ func (r Result) String() string {
 var drawRawResults = map[string]bool{
 	"agreed": true, "repetition": true, "stalemate": true,
 	"insufficient": true, "50move": true, "timevsinsufficient": true,
+	"draw": true, // Lichess reports a draw without saying how it came about.
+}
+
+var noResultRawResults = map[string]bool{
+	"aborted": true, "unknownfinish": true,
 }
 
 // Describe reports how the game ended for self. Chess.com marks the winner's own result as "win";
@@ -38,6 +46,8 @@ func Describe(self, opponent Player) (Result, string) {
 		result = Win
 	case drawRawResults[raw]:
 		result = Draw
+	case noResultRawResults[raw]:
+		result = NoResult
 	}
 
 	reasonSource := self.RawResult
@@ -67,10 +77,20 @@ func describeReason(raw string) string {
 		return "Agreement"
 	case "abandoned":
 		return "Abandoned"
+	case "aborted":
+		return "Aborted"
+	case "nostart":
+		return "Not started"
+	case "unknownfinish":
+		return "Unknown"
+	case "variantend":
+		return "Variant rule"
 	case "timevsinsufficient":
 		return "Timeout vs Insufficient Material"
 	case "win":
 		return "Win"
+	case "draw":
+		return ""
 	default:
 		return raw
 	}

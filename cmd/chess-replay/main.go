@@ -40,7 +40,6 @@ Usage: chess-replay <username> [options]
 
 Options:
   --site <chesscom|lichess>      Site to load games from (default: chesscom)
-  --random                       Replay a random past game
   --month <YYYY-MM>              List games from a specific month
   --set-site <chesscom|lichess>  Save the site to use when --site is not given
   --show-config                  Show the config file and the default site
@@ -51,7 +50,6 @@ Options:
 type options struct {
 	username    string
 	site        string
-	random      bool
 	month       string
 	setSite     string
 	showConfig  bool
@@ -69,7 +67,6 @@ func parseArgs(args []string) (options, error) {
 	fs := flag.NewFlagSet("chess-replay", flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
 	fs.StringVar(&opts.site, "site", "", "")
-	fs.BoolVar(&opts.random, "random", false, "")
 	fs.StringVar(&opts.month, "month", "", "")
 	fs.StringVar(&opts.setSite, "set-site", "", "")
 	fs.BoolVar(&opts.showConfig, "show-config", false, "")
@@ -105,7 +102,7 @@ func parseArgs(args []string) (options, error) {
 		if setSiteGiven && !validSite(opts.setSite) {
 			return opts, fmt.Errorf("--set-site expects %s or %s.", siteChessCom, siteLichess)
 		}
-		otherOptions := len(positional) > 0 || opts.random || opts.month != "" || opts.site != ""
+		otherOptions := len(positional) > 0 || opts.month != "" || opts.site != ""
 		if (setSiteGiven && opts.showConfig) || otherOptions {
 			return opts, errors.New("--set-site and --show-config cannot be combined with each other or with other options.")
 		}
@@ -175,9 +172,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 // loader is what both sites' loaders offer, one method per mode.
 type loader interface {
 	Latest(ctx context.Context, username string) (app.Source, error)
-	Random(ctx context.Context, username string) (app.Source, error)
 	Month(ctx context.Context, username string, archive chesscom.Archive) (app.Source, error)
-	RandomInMonth(ctx context.Context, username string, archive chesscom.Archive) (app.Source, error)
 }
 
 func newLoader(site string, logf func(string, ...any)) loader {
@@ -190,21 +185,15 @@ func newLoader(site string, logf func(string, ...any)) loader {
 func load(ctx context.Context, opts options, logf func(string, ...any)) (app.Source, error) {
 	loader := newLoader(opts.site, logf)
 
-	switch {
-	case opts.month != "":
-		archive, ok := chesscom.ParseArchive(opts.month)
-		if !ok {
-			return app.Source{}, errors.New("--month expects the format YYYY-MM.")
-		}
-		if opts.random {
-			return loader.RandomInMonth(ctx, opts.username, archive)
-		}
-		return loader.Month(ctx, opts.username, archive)
-	case opts.random:
-		return loader.Random(ctx, opts.username)
-	default:
+	if opts.month == "" {
 		return loader.Latest(ctx, opts.username)
 	}
+
+	archive, ok := chesscom.ParseArchive(opts.month)
+	if !ok {
+		return app.Source{}, errors.New("--month expects the format YYYY-MM.")
+	}
+	return loader.Month(ctx, opts.username, archive)
 }
 
 func reportError(stderr io.Writer, err error) int {

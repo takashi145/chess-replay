@@ -20,10 +20,8 @@ func TestParseArgs(t *testing.T) {
 		{"username only", []string{"alice"}, options{username: "alice"}},
 		{"options before username", []string{"--month", "2026-08", "alice"}, options{username: "alice", month: "2026-08"}},
 		{"options after username", []string{"alice", "--month", "2026-08", "--verbose"}, options{username: "alice", month: "2026-08", verbose: true}},
-		{"single dash", []string{"alice", "-random"}, options{username: "alice", random: true}},
 		{"month", []string{"alice", "--month", "2026-08"}, options{username: "alice", month: "2026-08"}},
 		{"equals form", []string{"alice", "--month=2026-08"}, options{username: "alice", month: "2026-08"}},
-		{"month and random", []string{"alice", "--month", "2026-08", "--random"}, options{username: "alice", month: "2026-08", random: true}},
 		{"site", []string{"alice", "--site", "lichess"}, options{username: "alice", site: "lichess"}},
 		{"site before username", []string{"--site=chesscom", "alice"}, options{username: "alice", site: "chesscom"}},
 		{"set site needs no username", []string{"--set-site", "lichess"}, options{setSite: "lichess"}},
@@ -59,7 +57,6 @@ func TestParseArgsRejectsBadInput(t *testing.T) {
 		"set site and show":      {"--set-site", "lichess", "--show-config"},
 		"set site with name":     {"alice", "--set-site", "lichess"},
 		"set site with site":     {"--set-site", "lichess", "--site", "lichess"},
-		"show config with rand":  {"--show-config", "--random"},
 		"show config with month": {"--show-config", "--month", "2026-08"},
 	}
 

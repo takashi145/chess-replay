@@ -90,40 +90,6 @@ func TestLatestWithoutArchivesIsNoGames(t *testing.T) {
 	}
 }
 
-func TestRandomSkipsMonthsWithoutGames(t *testing.T) {
-	api := &fakeAPI{
-		archives: []chesscom.Archive{jul, aug},
-		games: map[chesscom.Archive][]chesscom.Game{
-			aug: {},
-			jul: {game("ok", 2, "chess")},
-		},
-	}
-
-	for range 20 {
-		src, err := Loader{API: api}.Random(context.Background(), "u")
-		if err != nil || !src.Single || !slices.Equal(urls(src.Games), []string{"ok"}) {
-			t.Fatalf("src = %+v, err = %v", src, err)
-		}
-	}
-}
-
-func TestRandomLooksAtAtMostSixMonths(t *testing.T) {
-	api := &fakeAPI{games: map[chesscom.Archive][]chesscom.Game{}}
-	for m := 1; m <= 12; m++ {
-		api.archives = append(api.archives, chesscom.Archive{Year: 2025, Month: m})
-	}
-
-	_, err := Loader{API: api}.Random(context.Background(), "u")
-
-	var noGames *chesscom.NoGamesError
-	if !errors.As(err, &noGames) {
-		t.Errorf("err = %v, want NoGamesError", err)
-	}
-	if len(api.fetched) != maxRandomArchives {
-		t.Errorf("fetched %d months, want %d", len(api.fetched), maxRandomArchives)
-	}
-}
-
 func TestMonthListsAllGamesNewestFirst(t *testing.T) {
 	api := &fakeAPI{games: map[chesscom.Archive][]chesscom.Game{
 		aug: {game("a", 10, "chess"), game("960", 20, "chess960"), game("b", 30, "chess")},
@@ -145,29 +111,5 @@ func TestMonthWithoutGames(t *testing.T) {
 	var noGames *chesscom.NoGamesError
 	if !errors.As(err, &noGames) || noGames.Archive == nil || *noGames.Archive != aug {
 		t.Errorf("err = %v, want NoGamesError for the month", err)
-	}
-}
-
-func TestRandomInMonthReturnsAGameFromThatMonth(t *testing.T) {
-	api := &fakeAPI{games: map[chesscom.Archive][]chesscom.Game{
-		aug: {game("a", 1, "chess"), game("960", 2, "chess960"), game("b", 3, "chess")},
-		jul: {game("july", 4, "chess")},
-	}}
-
-	for range 20 {
-		src, err := Loader{API: api}.RandomInMonth(context.Background(), "u", aug)
-
-		if err != nil || !src.Single || len(src.Games) != 1 || !slices.Contains([]string{"a", "960", "b"}, src.Games[0].URL) {
-			t.Fatalf("src = %+v, err = %v", src, err)
-		}
-	}
-}
-
-func TestRandomInMonthWithoutGames(t *testing.T) {
-	_, err := Loader{API: &fakeAPI{}}.RandomInMonth(context.Background(), "u", aug)
-
-	var noGames *chesscom.NoGamesError
-	if !errors.As(err, &noGames) {
-		t.Errorf("err = %v, want NoGamesError", err)
 	}
 }

@@ -58,7 +58,6 @@ chess-replay <username> [options]
 | Argument / Option | Description |
 |---|---|
 | `<username>` | Chess.com username (required) |
-| `--random` | Replay a random past game (with `--month`, a random game from that month) |
 | `--month <YYYY-MM>` | List games from a specific month |
 | `--verbose` | Print diagnostic information to stderr |
 
@@ -72,12 +71,6 @@ chess-replay <username>
 
 # List games played in August 2026
 chess-replay <username> --month 2026-08
-
-# Replay a random past game
-chess-replay <username> --random
-
-# Replay a random game from August 2026
-chess-replay <username> --month 2026-08 --random
 ```
 
 ## Controls

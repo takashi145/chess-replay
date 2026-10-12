@@ -102,7 +102,7 @@ chess-replay <username> --month 2026-08 --random
 
 ## Limitations
 
-- Chess960 games are not supported yet. They are hidden from game lists and skipped by `--random`.
+- Some game types, such as Chess960, are not supported yet.
 
 ## License
 

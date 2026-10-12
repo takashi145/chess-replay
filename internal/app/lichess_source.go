@@ -3,7 +3,6 @@ package app
 import (
 	"context"
 	"fmt"
-	"math/rand/v2"
 	"time"
 
 	"github.com/takashi145/chess-replay/internal/chesscom"
@@ -13,10 +12,6 @@ import (
 const (
 	// latestWindow is how many recent games the default mode looks through for a playable one.
 	latestWindow = 20
-	// randomWindow is how many recent games --random picks from.
-	randomWindow = 100
-	// randomMonthWindow is how many of a month's newest games --month --random picks from.
-	randomMonthWindow = 500
 	// pageSize is how many games a list fetches at a time.
 	pageSize = 30
 )
@@ -59,38 +54,10 @@ func (l LichessLoader) Latest(ctx context.Context, username string) (Source, err
 	return Source{Games: page.Games[:1], Single: true}, nil
 }
 
-func (l LichessLoader) Random(ctx context.Context, username string) (Source, error) {
-	page, err := l.games(ctx, username, lichess.Query{Max: randomWindow})
-	if err != nil {
-		return Source{}, err
-	}
-
-	return randomGame(username, page.Games, nil)
-}
-
 // Month lists the games started in the given month, a page at a time.
 func (l LichessLoader) Month(ctx context.Context, username string, archive chesscom.Archive) (Source, error) {
 	title := fmt.Sprintf("%s — Games in %s (UTC)", username, archive)
 	return l.list(ctx, username, monthQuery(archive), title, &archive)
-}
-
-// RandomInMonth replays one game chosen from the given month.
-func (l LichessLoader) RandomInMonth(ctx context.Context, username string, archive chesscom.Archive) (Source, error) {
-	q := monthQuery(archive)
-	q.Max = randomMonthWindow
-	page, err := l.games(ctx, username, q)
-	if err != nil {
-		return Source{}, err
-	}
-
-	return randomGame(username, page.Games, &archive)
-}
-
-func randomGame(username string, games []chesscom.Game, archive *chesscom.Archive) (Source, error) {
-	if len(games) == 0 {
-		return Source{}, &chesscom.NoGamesError{Username: username, Archive: archive}
-	}
-	return Source{Games: []chesscom.Game{games[rand.IntN(len(games))]}, Single: true}, nil
 }
 
 func (l LichessLoader) list(ctx context.Context, username string, q lichess.Query, title string, archive *chesscom.Archive) (Source, error) {

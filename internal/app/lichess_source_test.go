@@ -81,7 +81,6 @@ func TestLichessNoGames(t *testing.T) {
 
 	for name, err := range map[string]error{
 		"latest": second(loader.Latest(ctx, "u")),
-		"random": second(loader.Random(ctx, "u")),
 		"month":  second(loader.Month(ctx, "u", sep)),
 	} {
 		var noGames *chesscom.NoGamesError
@@ -99,17 +98,6 @@ func TestLichessMonthErrorNamesTheMonth(t *testing.T) {
 	var noGames *chesscom.NoGamesError
 	if !errors.As(err, &noGames) || noGames.Archive == nil || *noGames.Archive != sep {
 		t.Errorf("err = %v, want NoGamesError for 2026-09", err)
-	}
-}
-
-func TestLichessRandomPicksOneOfTheRecentGames(t *testing.T) {
-	api := &fakeLichess{games: []chesscom.Game{game("960", 30, "chess960"), game("a", 20, "chess"), game("b", 1, "chess")}}
-
-	for range 20 {
-		src, err := LichessLoader{API: api}.Random(context.Background(), "u")
-		if err != nil || !src.Single || len(src.Games) != 1 {
-			t.Fatalf("src = %+v, err = %v", src, err)
-		}
 	}
 }
 
@@ -148,16 +136,5 @@ func TestLichessMonthPagesThroughTheGames(t *testing.T) {
 	firstQuery, nextQuery := api.queries[0], api.queries[1]
 	if !nextQuery.Since.Equal(firstQuery.Since) || !nextQuery.Until.Equal(api.games[pageSize-1].PlayedAt) {
 		t.Errorf("next query = %+v, want the same month, ending at the last game of the first page", nextQuery)
-	}
-}
-
-func TestLichessRandomInMonth(t *testing.T) {
-	api := &fakeLichess{games: []chesscom.Game{game("b", 20, "chess"), game("960", 10, "chess960"), game("a", 1, "chess")}}
-
-	for range 20 {
-		src, err := LichessLoader{API: api}.RandomInMonth(context.Background(), "u", sep)
-		if err != nil || !src.Single || len(src.Games) != 1 {
-			t.Fatalf("src = %+v, err = %v", src, err)
-		}
 	}
 }

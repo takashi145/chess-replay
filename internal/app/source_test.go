@@ -46,7 +46,7 @@ var (
 	aug = chesscom.Archive{Year: 2026, Month: 8}
 )
 
-func TestLatestPicksTheNewestPlayableGame(t *testing.T) {
+func TestLatestPicksTheNewestGame(t *testing.T) {
 	api := &fakeAPI{
 		archives: []chesscom.Archive{jul, aug},
 		games: map[chesscom.Archive][]chesscom.Game{
@@ -57,7 +57,7 @@ func TestLatestPicksTheNewestPlayableGame(t *testing.T) {
 
 	src, err := Loader{API: api}.Latest(context.Background(), "u")
 
-	if err != nil || !src.Single || !slices.Equal(urls(src.Games), []string{"new"}) {
+	if err != nil || !src.Single || !slices.Equal(urls(src.Games), []string{"960"}) {
 		t.Fatalf("src = %+v, err = %v", src, err)
 	}
 	if len(api.fetched) != 1 {
@@ -69,7 +69,7 @@ func TestLatestFallsBackToAnOlderMonth(t *testing.T) {
 	api := &fakeAPI{
 		archives: []chesscom.Archive{jul, aug},
 		games: map[chesscom.Archive][]chesscom.Game{
-			aug: {game("960", 30, "chess960")},
+			aug: {},
 			jul: {game("july", 5, "chess")},
 		},
 	}

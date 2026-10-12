@@ -76,9 +76,9 @@ func (l Loader) Latest(ctx context.Context, username string) (Source, error) {
 			return Source{}, err
 		}
 
-		playable := playableGames(games)
-		if len(playable) > 0 {
-			return Source{Games: playable[:1], Single: true}, nil
+		if len(games) > 0 {
+			sortNewestFirst(games)
+			return Source{Games: games[:1], Single: true}, nil
 		}
 	}
 	return Source{}, &chesscom.NoGamesError{Username: username}

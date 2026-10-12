@@ -198,7 +198,7 @@ func (p playerDTO) name() string {
 }
 
 // rawResults expresses how a game ended in the result words chesscom.Describe understands.
-// A status that is neither a draw nor a win for someone, such as "aborted", is passed through as it is.
+// A game with no winner that is not a draw has no result; "aborted" and "noStart" are kept, the rest become "unknownFinish".
 func rawResults(status, winner string) (white, black string) {
 	switch status {
 	case "draw":
@@ -231,5 +231,8 @@ func rawResults(status, winner string) (white, black string) {
 	case "black":
 		return loser, "win"
 	}
-	return status, status
+	if status == "aborted" || status == "noStart" {
+		return status, status
+	}
+	return "unknownFinish", "unknownFinish"
 }

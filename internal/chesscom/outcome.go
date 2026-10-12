@@ -31,7 +31,7 @@ var drawRawResults = map[string]bool{
 }
 
 var noResultRawResults = map[string]bool{
-	"aborted": true, "nostart": true,
+	"aborted": true, "nostart": true, "unknownfinish": true,
 }
 
 // Describe reports how the game ended for self. Chess.com marks the winner's own result as "win";
@@ -81,6 +81,8 @@ func describeReason(raw string) string {
 		return "Aborted"
 	case "nostart":
 		return "Not started"
+	case "unknownfinish":
+		return "Unknown"
 	case "variantend":
 		return "Variant rule"
 	case "timevsinsufficient":

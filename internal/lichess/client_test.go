@@ -325,6 +325,8 @@ func TestRawResultsAreUnderstoodByDescribe(t *testing.T) {
 		{"outoftime", "", "w", chesscom.Draw, "Timeout vs Insufficient Material"},
 		{"aborted", "", "w", chesscom.NoResult, "Aborted"},
 		{"noStart", "", "w", chesscom.NoResult, "Not started"},
+		{"timeout", "", "w", chesscom.NoResult, "Unknown"},
+		{"unknownFinish", "", "w", chesscom.NoResult, "Unknown"},
 		{"draw", "", "w", chesscom.Draw, ""},
 		{"stalemate", "", "w", chesscom.Draw, "Stalemate"},
 		{"insufficientMaterialClaim", "", "w", chesscom.Draw, "Insufficient Material"},

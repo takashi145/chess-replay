@@ -15,12 +15,14 @@ const (
 	latestWindow = 20
 	// randomWindow is how many recent games --random picks from.
 	randomWindow = 100
-	// maxListedGames bounds a list, so a busy month does not take minutes to download.
-	maxListedGames = 500
+	// randomMonthWindow is how many of a month's newest games --month --random picks from.
+	randomMonthWindow = 500
+	// pageSize is how many games a list fetches at a time.
+	pageSize = 30
 )
 
 type LichessAPI interface {
-	Games(ctx context.Context, username string, q lichess.Query) ([]chesscom.Game, error)
+	Games(ctx context.Context, username string, q lichess.Query) (lichess.Page, error)
 }
 
 // LichessLoader chooses games from Lichess for each command-line mode, like Loader does for Chess.com.
@@ -29,81 +31,106 @@ type LichessLoader struct {
 	Logf func(format string, args ...any)
 }
 
-func (l LichessLoader) games(ctx context.Context, username string, q lichess.Query) ([]chesscom.Game, error) {
-	games, err := l.API.Games(ctx, username, q)
+func (l LichessLoader) games(ctx context.Context, username string, q lichess.Query) (lichess.Page, error) {
+	page, err := l.API.Games(ctx, username, q)
 	if err != nil {
-		return nil, err
+		return lichess.Page{}, err
 	}
 	if l.Logf != nil {
-		l.Logf("Fetched %d games", len(games))
+		l.Logf("Fetched %d games", len(page.Games))
 	}
-	return games, nil
+	return page, nil
 }
 
-func noPlayableGames(username string, games []chesscom.Game, archive *chesscom.Archive) error {
-	if len(games) == 0 {
+func noPlayableGames(username string, count int, archive *chesscom.Archive) error {
+	if count == 0 {
 		return &chesscom.NoGamesError{Username: username, Archive: archive}
 	}
-	return &AllChess960Error{Count: len(games)}
+	return &AllChess960Error{Count: count}
+}
+
+func monthQuery(archive chesscom.Archive) lichess.Query {
+	since := time.Date(archive.Year, time.Month(archive.Month), 1, 0, 0, 0, 0, time.UTC)
+	return lichess.Query{Since: since, Until: since.AddDate(0, 1, 0)}
 }
 
 func (l LichessLoader) Latest(ctx context.Context, username string) (Source, error) {
-	games, err := l.games(ctx, username, lichess.Query{Max: latestWindow})
+	page, err := l.games(ctx, username, lichess.Query{Max: latestWindow})
 	if err != nil {
 		return Source{}, err
 	}
 
-	playable := playableGames(games)
+	playable := playableGames(page.Games)
 	if len(playable) == 0 {
-		return Source{}, noPlayableGames(username, games, nil)
+		return Source{}, noPlayableGames(username, len(page.Games), nil)
 	}
 	return Source{Games: playable[:1], Single: true}, nil
 }
 
 func (l LichessLoader) Random(ctx context.Context, username string) (Source, error) {
-	games, err := l.games(ctx, username, lichess.Query{Max: randomWindow})
+	page, err := l.games(ctx, username, lichess.Query{Max: randomWindow})
 	if err != nil {
 		return Source{}, err
 	}
 
-	playable := playableGames(games)
-	if len(playable) == 0 {
-		return Source{}, noPlayableGames(username, games, nil)
-	}
-	return Source{Games: []chesscom.Game{playable[rand.IntN(len(playable))]}, Single: true}, nil
+	return randomGame(username, page.Games, nil)
 }
 
-// Month lists the games started in the given month, at most the newest maxListedGames of them.
+// Month lists the games started in the given month, a page at a time.
 func (l LichessLoader) Month(ctx context.Context, username string, archive chesscom.Archive) (Source, error) {
-	since := time.Date(archive.Year, time.Month(archive.Month), 1, 0, 0, 0, 0, time.UTC)
-	// One more than the limit tells whether the month has more games than are listed.
-	games, err := l.games(ctx, username, lichess.Query{Max: maxListedGames + 1, Since: since, Until: since.AddDate(0, 1, 0)})
-	if err != nil {
-		return Source{}, err
-	}
-
-	truncated := len(games) > maxListedGames
-	if truncated {
-		games = games[:maxListedGames]
-	}
-
-	playable := playableGames(games)
-	if len(playable) == 0 {
-		return Source{}, noPlayableGames(username, games, &archive)
-	}
-
 	title := fmt.Sprintf("%s — Games in %s (UTC)", username, archive)
-	if truncated {
-		title += fmt.Sprintf(" — newest %d", maxListedGames)
-	}
-	return Source{Title: title, Games: playable, Hidden: len(games) - len(playable)}, nil
+	return l.list(ctx, username, monthQuery(archive), title, &archive)
 }
 
 // RandomInMonth replays one game chosen from the given month.
 func (l LichessLoader) RandomInMonth(ctx context.Context, username string, archive chesscom.Archive) (Source, error) {
-	src, err := l.Month(ctx, username, archive)
+	q := monthQuery(archive)
+	q.Max = randomMonthWindow
+	page, err := l.games(ctx, username, q)
 	if err != nil {
 		return Source{}, err
 	}
-	return Source{Games: []chesscom.Game{src.Games[rand.IntN(len(src.Games))]}, Single: true}, nil
+
+	return randomGame(username, page.Games, &archive)
+}
+
+func randomGame(username string, games []chesscom.Game, archive *chesscom.Archive) (Source, error) {
+	playable := playableGames(games)
+	if len(playable) == 0 {
+		return Source{}, noPlayableGames(username, len(games), archive)
+	}
+	return Source{Games: []chesscom.Game{playable[rand.IntN(len(playable))]}, Single: true}, nil
+}
+
+func (l LichessLoader) list(ctx context.Context, username string, q lichess.Query, title string, archive *chesscom.Archive) (Source, error) {
+	src, err := l.page(ctx, username, q)
+	if err != nil {
+		return Source{}, err
+	}
+	if len(src.Games) == 0 && src.More == nil {
+		return Source{}, noPlayableGames(username, src.Hidden, archive)
+	}
+
+	src.Title = title
+	return src, nil
+}
+
+// page fetches one page of games. Its More fetches the page after it.
+func (l LichessLoader) page(ctx context.Context, username string, q lichess.Query) (Source, error) {
+	q.Max = pageSize
+	page, err := l.games(ctx, username, q)
+	if err != nil {
+		return Source{}, err
+	}
+
+	src := Source{Games: playableGames(page.Games)}
+	src.Hidden = len(page.Games) - len(src.Games)
+	if !page.Next.IsZero() {
+		next := q
+		next.Until = page.Next
+		src.More = func(ctx context.Context) (Source, error) {
+			return l.page(ctx, username, next)
+		}
+	}
+	return src, nil
 }

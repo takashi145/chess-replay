@@ -12,19 +12,30 @@ import (
 	"github.com/takashi145/chess-replay/internal/lichess"
 )
 
-// fakeLichess serves games newest first, honouring Max like the real API does.
+// fakeLichess serves games newest first, honouring Max and Until like the real API does.
+// It uses a game's EndTime where the real API uses its start time.
 type fakeLichess struct {
 	games   []chesscom.Game
 	queries []lichess.Query
 }
 
-func (f *fakeLichess) Games(_ context.Context, _ string, q lichess.Query) ([]chesscom.Game, error) {
+func (f *fakeLichess) Games(_ context.Context, _ string, q lichess.Query) (lichess.Page, error) {
 	f.queries = append(f.queries, q)
-	games := f.games
-	if q.Max > 0 && len(games) > q.Max {
-		games = games[:q.Max]
+
+	var games []chesscom.Game
+	for _, g := range f.games {
+		if q.Until.IsZero() || g.EndTime.Before(q.Until) {
+			games = append(games, g)
+		}
 	}
-	return slices.Clone(games), nil
+
+	var page lichess.Page
+	if q.Max > 0 && len(games) >= q.Max {
+		games = games[:q.Max]
+		page.Next = games[len(games)-1].EndTime
+	}
+	page.Games = slices.Clone(games)
+	return page, nil
 }
 
 // manyGames returns n standard games, newest first.
@@ -36,6 +47,20 @@ func manyGames(n int) []chesscom.Game {
 		games = append(games, g)
 	}
 	return games
+}
+
+// nextPages follows More from src to the end and returns the URLs of every page, in order.
+func nextPages(t *testing.T, src Source) [][]string {
+	t.Helper()
+	pages := [][]string{urls(src.Games)}
+	for src.More != nil {
+		var err error
+		if src, err = src.More(context.Background()); err != nil {
+			t.Fatal(err)
+		}
+		pages = append(pages, urls(src.Games))
+	}
+	return pages
 }
 
 var sep = chesscom.Archive{Year: 2026, Month: 9}
@@ -121,29 +146,24 @@ func TestLichessMonthAsksForThatUTCMonth(t *testing.T) {
 	}
 }
 
-func TestLichessMonthAtTheLimitIsNotMarkedAsCut(t *testing.T) {
-	api := &fakeLichess{games: manyGames(maxListedGames)}
+func TestLichessMonthPagesThroughTheGames(t *testing.T) {
+	api := &fakeLichess{games: manyGames(2*pageSize + 10)}
 
 	src, err := LichessLoader{API: api}.Month(context.Background(), "u", sep)
 
-	if err != nil || len(src.Games) != maxListedGames || src.Title != "u — Games in 2026-09 (UTC)" {
-		t.Errorf("games = %d, title = %q, err = %v", len(src.Games), src.Title, err)
+	if err != nil {
+		t.Fatal(err)
 	}
-}
-
-func TestLichessMonthOverTheLimitShowsTheNewestAndSaysSo(t *testing.T) {
-	api := &fakeLichess{games: manyGames(maxListedGames + 200)}
-
-	src, err := LichessLoader{API: api}.Month(context.Background(), "u", sep)
-
-	if err != nil || len(src.Games) != maxListedGames {
-		t.Fatalf("games = %d, err = %v, want %d games", len(src.Games), err, maxListedGames)
+	pages := nextPages(t, src)
+	if len(pages) != 3 || len(pages[0]) != pageSize || len(pages[1]) != pageSize || len(pages[2]) != 10 {
+		t.Fatalf("got %d pages, want %d, %d and 10 games", len(pages), pageSize, pageSize)
 	}
-	if want := fmt.Sprintf("u — Games in 2026-09 (UTC) — newest %d", maxListedGames); src.Title != want {
-		t.Errorf("title = %q, want %q", src.Title, want)
+	if pages[0][0] != "g0" || pages[1][0] != fmt.Sprintf("g%d", pageSize) || pages[2][9] != fmt.Sprintf("g%d", 2*pageSize+9) {
+		t.Errorf("pages do not follow on from each other: %v %v %v", pages[0][0], pages[1][0], pages[2][9])
 	}
-	if src.Games[0].URL != "g0" {
-		t.Errorf("first game = %q, want the newest", src.Games[0].URL)
+	firstQuery, nextQuery := api.queries[0], api.queries[1]
+	if !nextQuery.Since.Equal(firstQuery.Since) || !nextQuery.Until.Equal(api.games[pageSize-1].EndTime) {
+		t.Errorf("next query = %+v, want the same month, ending at the last game of the first page", nextQuery)
 	}
 }
 
@@ -155,5 +175,18 @@ func TestLichessRandomInMonth(t *testing.T) {
 		if err != nil || !src.Single || len(src.Games) != 1 || src.Games[0].IsChess960() {
 			t.Fatalf("src = %+v, err = %v", src, err)
 		}
+	}
+}
+
+func TestLichessMonthWithOnlyChess960OnTheFirstPageStillOffersMore(t *testing.T) {
+	games := manyGames(pageSize + 5)
+	for i := range pageSize {
+		games[i].Rules = "chess960"
+	}
+
+	src, err := LichessLoader{API: &fakeLichess{games: games}}.Month(context.Background(), "u", sep)
+
+	if err != nil || len(src.Games) != 0 || src.Hidden != pageSize || src.More == nil {
+		t.Errorf("games = %d, hidden = %d, more = %v, err = %v", len(src.Games), src.Hidden, src.More != nil, err)
 	}
 }

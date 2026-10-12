@@ -58,6 +58,7 @@ type gameDTO struct {
 	Rated      bool   `json:"rated"`
 	Variant    string `json:"variant"`
 	Speed      string `json:"speed"`
+	CreatedAt  int64  `json:"createdAt"`
 	LastMoveAt int64  `json:"lastMoveAt"`
 	Status     string `json:"status"`
 	Players    struct {
@@ -76,9 +77,16 @@ type playerDTO struct {
 	Rating *int `json:"rating"`
 }
 
+type Page struct {
+	Games []chesscom.Game
+	// Next is the Until value that fetches the games after this page. It is the zero time
+	// when Lichess sent fewer games than asked for, so this page was the last.
+	Next time.Time
+}
+
 // Games returns the player's finished games, newest first, with their clocks in the PGN.
 // Games that cannot be replayed or have no result, such as aborted ones, are left out.
-func (c *Client) Games(ctx context.Context, username string, q Query) ([]chesscom.Game, error) {
+func (c *Client) Games(ctx context.Context, username string, q Query) (Page, error) {
 	params := url.Values{}
 	params.Set("clocks", "true")
 	params.Set("pgnInJson", "true")
@@ -95,25 +103,31 @@ func (c *Client) Games(ctx context.Context, username string, q Query) ([]chessco
 
 	body, err := c.get(ctx, u, username)
 	if err != nil {
-		return nil, err
+		return Page{}, err
 	}
 	defer body.Close()
 
-	var games []chesscom.Game
+	var page Page
+	sent := 0
 	dec := json.NewDecoder(body)
 	for {
 		var dto gameDTO
 		if err := dec.Decode(&dto); err != nil {
 			if errors.Is(err, io.EOF) {
-				return games, nil
+				return page, nil
 			}
 			if ctx.Err() != nil {
-				return nil, ctx.Err()
+				return Page{}, ctx.Err()
 			}
-			return nil, errors.New("Lichess API returned an unreadable response.")
+			return Page{}, errors.New("Lichess API returned an unreadable response.")
+		}
+
+		sent++
+		if q.Max > 0 && sent == q.Max {
+			page.Next = time.UnixMilli(dto.CreatedAt).UTC()
 		}
 		if game, ok := dto.toGame(c.baseURL); ok {
-			games = append(games, game)
+			page.Games = append(page.Games, game)
 		}
 	}
 }

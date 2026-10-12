@@ -22,7 +22,7 @@ func newTestClient(t *testing.T, handler http.HandlerFunc) *Client {
 }
 
 const finishedGame = `{"id":"abc12345","rated":true,"variant":"standard","speed":"blitz",
-	"lastMoveAt":1700000000000,"status":"mate","winner":"white",
+	"createdAt":1699999000000,"lastMoveAt":1700000000000,"status":"mate","winner":"white",
 	"players":{"white":{"user":{"name":"w"},"rating":1500},"black":{"user":{"name":"b"},"rating":1400}},
 	"moves":"e4 e5","pgn":"1. e4 { [%clk 0:03:00] } 1... e5 { [%clk 0:03:00] }"}`
 
@@ -80,7 +80,8 @@ func TestGamesConvertsFields(t *testing.T) {
 		w.Write([]byte(finishedGame + "\n\n"))
 	})
 
-	games, err := c.Games(context.Background(), "w", Query{})
+	page, err := c.Games(context.Background(), "w", Query{})
+	games := page.Games
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -118,7 +119,8 @@ func TestGamesKeepsNewestFirstOrder(t *testing.T) {
 			`{"id":"old","status":"mate","winner":"white","variant":"standard","moves":"e4","pgn":"1. e4"}` + "\n"))
 	})
 
-	games, err := c.Games(context.Background(), "u", Query{})
+	page, err := c.Games(context.Background(), "u", Query{})
+	games := page.Games
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -137,7 +139,8 @@ func TestGamesSkipsGamesThatCannotBeShown(t *testing.T) {
 				finishedGame + "\n"))
 	})
 
-	games, err := c.Games(context.Background(), "w", Query{})
+	page, err := c.Games(context.Background(), "w", Query{})
+	games := page.Games
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -152,7 +155,8 @@ func TestGamesMarksOtherVariantsAsUnsupported(t *testing.T) {
 		w.Write([]byte(`{"id":"z","status":"mate","winner":"white","variant":"crazyhouse","moves":"e4","pgn":"1. e4"}` + "\n"))
 	})
 
-	games, err := c.Games(context.Background(), "u", Query{})
+	page, err := c.Games(context.Background(), "u", Query{})
+	games := page.Games
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -168,7 +172,8 @@ func TestGamesPlayersWithoutAnAccount(t *testing.T) {
 			"players":{"white":{"user":{"name":"w"},"rating":1500},"black":{"aiLevel":3}}}` + "\n"))
 	})
 
-	games, err := c.Games(context.Background(), "w", Query{})
+	page, err := c.Games(context.Background(), "w", Query{})
+	games := page.Games
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -181,10 +186,39 @@ func TestGamesPlayersWithoutAnAccount(t *testing.T) {
 func TestGamesWithNoGamesIsNotAnError(t *testing.T) {
 	c := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {})
 
-	games, err := c.Games(context.Background(), "u", Query{})
+	page, err := c.Games(context.Background(), "u", Query{})
+	games := page.Games
 
 	if err != nil || len(games) != 0 {
 		t.Errorf("games = %v, err = %v", games, err)
+	}
+}
+
+func TestGamesNextPointsPastTheLastGameSent(t *testing.T) {
+	c := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		// The last game is left out of Games, but the next page must still start after it.
+		w.Write([]byte(`{"id":"a","status":"mate","winner":"white","variant":"standard","createdAt":300,"moves":"e4","pgn":"1. e4"}` + "\n" +
+			`{"id":"b","status":"aborted","variant":"standard","createdAt":200,"moves":"e4","pgn":"1. e4"}` + "\n"))
+	})
+
+	page, err := c.Games(context.Background(), "u", Query{Max: 2})
+
+	if err != nil || len(page.Games) != 1 || !page.Next.Equal(time.UnixMilli(200)) {
+		t.Errorf("page = %+v, err = %v, want one game and Next at 200ms", page, err)
+	}
+}
+
+func TestGamesNextIsZeroOnTheLastPage(t *testing.T) {
+	c := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(finishedGame + "\n"))
+	})
+
+	for name, q := range map[string]Query{"fewer than asked": {Max: 5}, "no limit": {}} {
+		page, err := c.Games(context.Background(), "u", q)
+
+		if err != nil || len(page.Games) != 1 || !page.Next.IsZero() {
+			t.Errorf("%s: page = %+v, err = %v, want a zero Next", name, page, err)
+		}
 	}
 }
 

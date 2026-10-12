@@ -31,7 +31,7 @@ var drawRawResults = map[string]bool{
 }
 
 var noResultRawResults = map[string]bool{
-	"aborted": true, "nostart": true, "unknownfinish": true,
+	"aborted": true, "unknownfinish": true,
 }
 
 // Describe reports how the game ended for self. Chess.com marks the winner's own result as "win";

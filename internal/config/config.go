@@ -50,9 +50,7 @@ func Load(path string) (Config, error) {
 	defer f.Close()
 
 	var cfg Config
-	dec := json.NewDecoder(f)
-	dec.DisallowUnknownFields()
-	if err := dec.Decode(&cfg); err != nil {
+	if err := json.NewDecoder(f).Decode(&cfg); err != nil {
 		return Config{}, fmt.Errorf("Could not read %s: %w", path, err)
 	}
 	return cfg, nil

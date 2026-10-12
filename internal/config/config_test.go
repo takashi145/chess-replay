@@ -44,12 +44,19 @@ func TestLoadWithoutAFileGivesEmptySettings(t *testing.T) {
 	}
 }
 
+func TestLoadIgnoresFieldsItDoesNotKnow(t *testing.T) {
+	cfg, err := Load(writeConfig(t, `{"site": "lichess", "theme": "dark"}`))
+
+	if err != nil || cfg.Site != "lichess" {
+		t.Errorf("cfg = %+v, err = %v", cfg, err)
+	}
+}
+
 func TestLoadRejectsAFileItCannotUse(t *testing.T) {
 	for name, content := range map[string]string{
-		"not json":      "site = lichess",
-		"empty file":    "",
-		"unknown field": `{"sit": "lichess"}`,
-		"wrong type":    `{"site": 3}`,
+		"not json":   "site = lichess",
+		"empty file": "",
+		"wrong type": `{"site": 3}`,
 	} {
 		path := writeConfig(t, content)
 
